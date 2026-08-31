@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return isSignedIn() && userDoc().data.rol == 'admin';
+    }
+
+    function isPresidenteDe(comisionId) {
+      return isSignedIn()
+        && userDoc().data.rol == 'presidente'
+        && userDoc().data.comisionId == comisionId;
+    }
+
+    match /usuarios/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    match /comisiones/{comisionId} {
+      allow read: if isSignedIn();
+      allow create, delete: if isAdmin();
+
+      // Admin can edit everything (incl. estado / aprobación).
+      // A president can only edit their own commission's "plan" field,
+      // and can only push status into 'en_revision', never approve it themselves.
+      allow update: if isAdmin() ||
+        (
+          isPresidenteDe(comisionId) &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['plan', 'estado', 'actualizadoEn']) &&
+          (request.resource.data.estado == 'borrador' ||
+           request.resource.data.estado == 'en_revision')
+        );
+    }
+  }
+}
