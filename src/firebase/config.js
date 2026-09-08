@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { getAuth } from 'firebase/auth'
+import { getAuth, GoogleAuthProvider } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 
 const firebaseConfig = {
@@ -15,9 +15,12 @@ export const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
 export const db = getFirestore(app)
 
-// Segunda instancia de Firebase (misma configuración, distinto "nombre" interno).
-// Se usa SOLO para crear cuentas de presidentes desde el panel de admin sin cerrar
-// la sesión de la administradora (createUserWithEmailAndPassword inicia sesión
-// automáticamente con la cuenta nueva si se usa la instancia principal).
-const secondaryApp = initializeApp(firebaseConfig, 'Secondary')
-export const secondaryAuth = getAuth(secondaryApp)
+// Inicio de sesión con Google. Como los presidentes NO tienen correo
+// institucional, se acepta cualquier cuenta de Gmail: la administradora
+// "autoriza" de antemano el correo de Gmail de cada presidente (colección
+// `presidentesAutorizados`) y, la primera vez que esa persona entra con
+// Google, el sistema crea automáticamente su perfil (ver AuthContext).
+export const googleProvider = new GoogleAuthProvider()
+// Fuerza a elegir cuenta cada vez (útil porque muchas personas tienen
+// varias cuentas de Gmail en el mismo navegador).
+googleProvider.setCustomParameters({ prompt: 'select_account' })
