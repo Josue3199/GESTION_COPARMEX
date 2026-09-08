@@ -44,8 +44,8 @@ export default function Login() {
           <div className="space-y-4">
             <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-md p-3">
               Entraste con <span className="font-semibold">{user.email}</span>, pero ese correo
-              todavía no ha sido autorizado. Pide a la administradora que lo dé de alta como
-              presidente de una comisión, o intenta con otra cuenta de Google.
+              todavía no ha sido autorizado. Pide al administrador del sistema que lo dé de alta
+              como presidente de una comisión, o intenta con otra cuenta de Google.
             </div>
             <button
               onClick={handleCambiarCuenta}
@@ -57,7 +57,7 @@ export default function Login() {
         ) : (
           <>
             <p className="text-sm text-slate-500 text-center mb-5">
-              Entra con la cuenta de Google que la administradora registró para ti.
+              Entra con la cuenta de Google que registraron para ti.
             </p>
 
             {error && <p className="text-sm text-red-600 mb-3 text-center">{error}</p>}
