@@ -71,7 +71,7 @@ export default function PresidenteDashboard() {
     return (
       <Layout titulo="Sin comisión asignada">
         <p className="text-slate-500">
-          Tu cuenta no tiene una comisión asignada todavía. Pide a la administradora que la vincule.
+          Tu cuenta no tiene una comisión asignada todavía. Pide al administrador del sistema que la vincule.
         </p>
       </Layout>
     )
