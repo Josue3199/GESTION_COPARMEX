@@ -3,12 +3,63 @@ import { Link } from 'react-router-dom'
 import { collection, doc, getDocs, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { AREAS, SEED_COMISIONES, ESTADOS } from '../data/comisiones'
+import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 
+const ICONOS = {
+  total: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="3" width="16" height="18" rx="2" />
+      <path d="M8 7h8M8 11h8M8 15h5" />
+    </svg>
+  ),
+  pendiente: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8v4l2.5 2.5" />
+    </svg>
+  ),
+  borrador: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20h4l10.5-10.5a2 2 0 0 0-4-4L4 16v4Z" />
+      <path d="M13 6l4 4" />
+    </svg>
+  ),
+  en_revision: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  ),
+  aprobado: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8 12.5l2.5 2.5L16 9.5" />
+    </svg>
+  ),
+  rechazado: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.5 9.5l5 5M14.5 9.5l-5 5" />
+    </svg>
+  ),
+}
+
+const ICONO_TONO = {
+  total: 'bg-slate-100 text-slate-600',
+  pendiente: 'bg-red-100 text-red-600',
+  borrador: 'bg-slate-100 text-slate-500',
+  en_revision: 'bg-amber-100 text-amber-600',
+  aprobado: 'bg-emerald-100 text-emerald-600',
+  rechazado: 'bg-rose-100 text-rose-600',
+}
+
 export default function AdminDashboard() {
+  const { perfil } = useAuth()
   const [comisiones, setComisiones] = useState([])
   const [cargando, setCargando] = useState(true)
   const [filtroArea, setFiltroArea] = useState('todas')
+  const [filtroEstado, setFiltroEstado] = useState(null)
   const [sembrando, setSembrando] = useState(false)
 
   const cargar = async () => {
@@ -43,23 +94,30 @@ export default function AdminDashboard() {
     return { total, ...porEstado }
   }, [comisiones])
 
+  const avanceGeneral = stats.total ? Math.round(((stats.aprobado || 0) / stats.total) * 100) : 0
+
+  const toggleEstado = (estado) => setFiltroEstado((actual) => (actual === estado ? null : estado))
+
   const areasVisibles = filtroArea === 'todas' ? AREAS : [filtroArea]
 
   const porArea = (area) =>
     comisiones
       .filter((c) => c.area === area)
+      .filter((c) => !filtroEstado || c.estado === filtroEstado)
       .sort((a, b) => a.nombreComision.localeCompare(b.nombreComision))
 
   return (
     <Layout titulo="Panel de administración">
-      <div className="flex justify-end mb-4">
-        <Link
-          to="/admin/presidentes"
-          className="text-sm font-medium text-brand-600 hover:underline"
-        >
-          Gestionar presidentes →
-        </Link>
-      </div>
+      {perfil?.rol === 'admin' && (
+        <div className="flex justify-end mb-4">
+          <Link
+            to="/admin/presidentes"
+            className="text-sm font-medium text-brand-600 hover:underline"
+          >
+            Gestionar accesos y roles →
+          </Link>
+        </div>
+      )}
 
       {cargando ? (
         <p className="text-slate-500">Cargando comisiones…</p>
@@ -78,12 +136,43 @@ export default function AdminDashboard() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
-            <StatCard label="Total" value={stats.total} />
-            <StatCard label="Pendientes" value={stats.pendiente || 0} />
-            <StatCard label="En revisión" value={stats.en_revision || 0} />
-            <StatCard label="Aprobados" value={stats.aprobado || 0} />
-            <StatCard label="Rechazados" value={stats.rechazado || 0} />
+          {/* Resumen general: de un vistazo, qué tan avanzado va todo. */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-slate-700 mb-1">Avance general de planes aprobados</p>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-brand-500 to-emerald-500 transition-all"
+                    style={{ width: `${avanceGeneral}%` }}
+                  />
+                </div>
+                <span className="text-lg font-bold text-slate-800 w-14 text-right">{avanceGeneral}%</span>
+              </div>
+            </div>
+            <p className="text-xs text-slate-400 sm:text-right sm:w-40">
+              {stats.aprobado || 0} de {stats.total} comisiones con plan aprobado
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+            <StatCard
+              icono="total"
+              label="Total"
+              value={stats.total}
+              activo={filtroEstado === null}
+              onClick={() => setFiltroEstado(null)}
+            />
+            {['pendiente', 'borrador', 'en_revision', 'aprobado', 'rechazado'].map((e) => (
+              <StatCard
+                key={e}
+                icono={e}
+                label={ESTADOS[e].texto}
+                value={stats[e] || 0}
+                activo={filtroEstado === e}
+                onClick={() => toggleEstado(e)}
+              />
+            ))}
           </div>
 
           <div className="flex flex-wrap items-center gap-2 mb-6">
@@ -110,6 +199,14 @@ export default function AdminDashboard() {
                 {a}
               </button>
             ))}
+            {filtroEstado && (
+              <button
+                onClick={() => setFiltroEstado(null)}
+                className="px-3 py-1.5 rounded-full text-sm font-medium border border-dashed border-slate-300 text-slate-500 hover:bg-slate-50"
+              >
+                Quitar filtro "{ESTADOS[filtroEstado].texto}" ✕
+              </button>
+            )}
           </div>
 
           {/* Agrupado por área, con espacio entre tarjetas en vez de una
@@ -121,7 +218,20 @@ export default function AdminDashboard() {
               return (
                 <details key={area} open className="bg-white rounded-xl border border-slate-200 overflow-hidden group">
                   <summary className="cursor-pointer list-none px-5 py-3 flex items-center justify-between hover:bg-slate-50">
-                    <span className="font-semibold text-slate-800">{area}</span>
+                    <span className="flex items-center gap-2">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-4 w-4 text-slate-400 transition-transform duration-200 group-open:rotate-90"
+                      >
+                        <path d="M9 6l6 6-6 6" />
+                      </svg>
+                      <span className="font-semibold text-slate-800">{area}</span>
+                    </span>
                     <span className="text-xs text-slate-400">{items.length} comisiones</span>
                   </summary>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4 pt-1 border-t border-slate-100">
@@ -147,6 +257,11 @@ export default function AdminDashboard() {
                 </details>
               )
             })}
+            {areasVisibles.every((area) => porArea(area).length === 0) && (
+              <div className="bg-white border border-dashed border-slate-300 rounded-xl p-8 text-center text-slate-500 text-sm">
+                No hay comisiones que coincidan con este filtro.
+              </div>
+            )}
           </div>
         </>
       )}
@@ -154,11 +269,19 @@ export default function AdminDashboard() {
   )
 }
 
-function StatCard({ label, value }) {
+function StatCard({ icono, label, value, activo, onClick }) {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4">
-      <p className="text-2xl font-bold text-slate-800">{value}</p>
-      <p className="text-xs text-slate-500 mt-1">{label}</p>
-    </div>
+    <button
+      onClick={onClick}
+      className={`text-left bg-white rounded-xl border p-4 transition flex flex-col gap-2 ${
+        activo ? 'border-brand-500 ring-2 ring-brand-100 shadow-sm' : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
+      }`}
+    >
+      <span className={`h-8 w-8 rounded-lg flex items-center justify-center ${ICONO_TONO[icono]}`}>
+        <span className="h-4.5 w-4.5 block" style={{ width: 18, height: 18 }}>{ICONOS[icono]}</span>
+      </span>
+      <p className="text-2xl font-bold text-slate-800 leading-none">{value}</p>
+      <p className="text-xs text-slate-500">{label}</p>
+    </button>
   )
 }
