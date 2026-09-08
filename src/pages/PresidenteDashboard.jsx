@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { doc, getDoc, updateDoc } from 'firebase/firestore'
+import { addDoc, collection, doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
-import { PLAN_VACIO } from '../data/comisiones'
+import { PLAN_VACIO, ESTADOS } from '../data/comisiones'
 import Layout from '../components/Layout'
 
 export default function PresidenteDashboard() {
@@ -49,10 +49,17 @@ export default function PresidenteDashboard() {
   const guardar = async (nuevoEstado) => {
     setGuardando(true)
     setMensaje('')
+    const fecha = new Date().toISOString()
     await updateDoc(doc(db, 'comisiones', comision.id), {
       plan,
       estado: nuevoEstado,
-      actualizadoEn: new Date().toISOString(),
+      actualizadoEn: fecha,
+    })
+    // Registro en el historial del plan (se ve en "Mi avance").
+    await addDoc(collection(db, 'comisiones', comision.id, 'historial'), {
+      estado: nuevoEstado,
+      fecha,
+      autorNombre: perfil?.nombre || 'Presidente',
     })
     setComision((c) => ({ ...c, estado: nuevoEstado }))
     setMensaje(nuevoEstado === 'en_revision' ? 'Plan enviado para revisión.' : 'Borrador guardado.')
@@ -69,6 +76,8 @@ export default function PresidenteDashboard() {
       </Layout>
     )
 
+  const estado = ESTADOS[comision.estado] || ESTADOS.pendiente
+
   return (
     <Layout titulo={comision.nombreComision}>
       <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4">
@@ -76,9 +85,9 @@ export default function PresidenteDashboard() {
         <p className="text-sm text-slate-600">
           {comision.presidenteCargo}: {comision.presidenteNombre}
         </p>
-        <p className="text-xs mt-2 inline-block px-2 py-1 rounded-full bg-slate-100 text-slate-600">
-          Estado actual: {comision.estado}
-        </p>
+        <span className={`text-xs mt-2 inline-block px-2.5 py-1 rounded-full font-semibold ${estado.color}`}>
+          Estado actual: {estado.texto}
+        </span>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-5">
