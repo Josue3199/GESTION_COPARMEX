@@ -2,15 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { collection, doc, getDocs, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase/config'
-import { AREAS, SEED_COMISIONES } from '../data/comisiones'
+import { AREAS, SEED_COMISIONES, ESTADOS } from '../data/comisiones'
 import Layout from '../components/Layout'
-
-const ESTADO_LABEL = {
-  pendiente: { texto: 'Pendiente', color: 'bg-red-100 text-red-700' },
-  borrador: { texto: 'Borrador', color: 'bg-slate-100 text-slate-600' },
-  en_revision: { texto: 'En revisión', color: 'bg-amber-100 text-amber-700' },
-  aprobado: { texto: 'Aprobado', color: 'bg-emerald-100 text-emerald-700' },
-}
 
 export default function AdminDashboard() {
   const [comisiones, setComisiones] = useState([])
@@ -50,9 +43,12 @@ export default function AdminDashboard() {
     return { total, ...porEstado }
   }, [comisiones])
 
-  const visibles = comisiones
-    .filter((c) => filtroArea === 'todas' || c.area === filtroArea)
-    .sort((a, b) => a.area.localeCompare(b.area) || a.nombreComision.localeCompare(b.nombreComision))
+  const areasVisibles = filtroArea === 'todas' ? AREAS : [filtroArea]
+
+  const porArea = (area) =>
+    comisiones
+      .filter((c) => c.area === area)
+      .sort((a, b) => a.nombreComision.localeCompare(b.nombreComision))
 
   return (
     <Layout titulo="Panel de administración">
@@ -84,19 +80,19 @@ export default function AdminDashboard() {
         <>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
             <StatCard label="Total" value={stats.total} />
-            <StatCard label="Pendientes" value={stats.pendiente || 0} tone="red" />
-            <StatCard label="Borrador" value={stats.borrador || 0} tone="slate" />
-            <StatCard label="En revisión" value={stats.en_revision || 0} tone="amber" />
-            <StatCard label="Aprobados" value={stats.aprobado || 0} tone="emerald" />
+            <StatCard label="Pendientes" value={stats.pendiente || 0} />
+            <StatCard label="En revisión" value={stats.en_revision || 0} />
+            <StatCard label="Aprobados" value={stats.aprobado || 0} />
+            <StatCard label="Rechazados" value={stats.rechazado || 0} />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 mb-4">
+          <div className="flex flex-wrap items-center gap-2 mb-6">
             <button
               onClick={() => setFiltroArea('todas')}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium border ${
+              className={`px-3 py-1.5 rounded-full text-sm font-medium border transition ${
                 filtroArea === 'todas'
                   ? 'bg-brand-600 text-white border-brand-600'
-                  : 'bg-white text-slate-600 border-slate-300'
+                  : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
               }`}
             >
               Todas las áreas
@@ -105,10 +101,10 @@ export default function AdminDashboard() {
               <button
                 key={a}
                 onClick={() => setFiltroArea(a)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium border ${
+                className={`px-3 py-1.5 rounded-full text-sm font-medium border transition ${
                   filtroArea === a
                     ? 'bg-brand-600 text-white border-brand-600'
-                    : 'bg-white text-slate-600 border-slate-300'
+                    : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
                 }`}
               >
                 {a}
@@ -116,25 +112,39 @@ export default function AdminDashboard() {
             ))}
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
-            {visibles.map((c) => {
-              const estado = ESTADO_LABEL[c.estado] || ESTADO_LABEL.pendiente
+          {/* Agrupado por área, con espacio entre tarjetas en vez de una
+              sola lista apretada: cada área es su propio bloque plegable. */}
+          <div className="space-y-4">
+            {areasVisibles.map((area) => {
+              const items = porArea(area)
+              if (items.length === 0) return null
               return (
-                <Link
-                  key={c.id}
-                  to={`/admin/comision/${c.id}`}
-                  className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition"
-                >
-                  <div>
-                    <p className="font-medium text-slate-800">{c.nombreComision}</p>
-                    <p className="text-sm text-slate-500">
-                      {c.presidenteNombre} · {c.area}
-                    </p>
+                <details key={area} open className="bg-white rounded-xl border border-slate-200 overflow-hidden group">
+                  <summary className="cursor-pointer list-none px-5 py-3 flex items-center justify-between hover:bg-slate-50">
+                    <span className="font-semibold text-slate-800">{area}</span>
+                    <span className="text-xs text-slate-400">{items.length} comisiones</span>
+                  </summary>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4 pt-1 border-t border-slate-100">
+                    {items.map((c) => {
+                      const estado = ESTADOS[c.estado] || ESTADOS.pendiente
+                      return (
+                        <Link
+                          key={c.id}
+                          to={`/admin/comision/${c.id}`}
+                          className="border border-slate-200 rounded-lg p-3 hover:border-brand-400 hover:shadow-sm transition flex flex-col gap-2"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="font-medium text-slate-800 text-sm leading-snug">{c.nombreComision}</p>
+                            <span className={`shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full ${estado.color}`}>
+                              {estado.texto}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500">{c.presidenteNombre}</p>
+                        </Link>
+                      )
+                    })}
                   </div>
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${estado.color}`}>
-                    {estado.texto}
-                  </span>
-                </Link>
+                </details>
               )
             })}
           </div>
