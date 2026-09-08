@@ -8,7 +8,7 @@ import Comentarios from '../components/Comentarios'
 
 // Vista de solo lectura (formato "documento / PDF") para que un presidente
 // consulte el plan de trabajo de otra comisión. Aquí no hay botones de
-// aprobar/rechazar: eso es exclusivo de la administradora. Lo único que un
+// aprobar/rechazar: eso es exclusivo de la directora. Lo único que un
 // presidente puede hacer es dejar una nota (no modifica el plan original).
 export default function VerPlanComision() {
   const { id } = useParams()
