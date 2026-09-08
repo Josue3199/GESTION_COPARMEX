@@ -25,19 +25,30 @@ export default function AdminPresidentes() {
 
   const cargar = async () => {
     setCargando(true)
-    const [comisionesSnap, autorizadosSnap, usuariosSnap] = await Promise.all([
-      getDocs(collection(db, 'comisiones')),
-      getDocs(collection(db, 'presidentesAutorizados')),
-      getDocs(collection(db, 'usuarios')),
-    ])
-    const listaComisiones = comisionesSnap.docs
-      .map((d) => ({ id: d.id, ...d.data() }))
-      .sort((a, b) => a.nombreComision.localeCompare(b.nombreComision))
-    setComisiones(listaComisiones)
-    setAutorizados(autorizadosSnap.docs.map((d) => ({ correo: d.id, ...d.data() })))
-    setUsuarios(usuariosSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
-    if (listaComisiones.length && !comisionId) setComisionId(listaComisiones[0].id)
-    setCargando(false)
+    setError('')
+    try {
+      const [comisionesSnap, autorizadosSnap, usuariosSnap] = await Promise.all([
+        getDocs(collection(db, 'comisiones')),
+        getDocs(collection(db, 'presidentesAutorizados')),
+        getDocs(collection(db, 'usuarios')),
+      ])
+      const listaComisiones = comisionesSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => a.nombreComision.localeCompare(b.nombreComision))
+      setComisiones(listaComisiones)
+      setAutorizados(autorizadosSnap.docs.map((d) => ({ correo: d.id, ...d.data() })))
+      setUsuarios(usuariosSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      if (listaComisiones.length && !comisionId) setComisionId(listaComisiones[0].id)
+    } catch (err) {
+      console.error('Error cargando Accesos y roles:', err)
+      setError(
+        err.code === 'permission-denied'
+          ? 'Firestore rechazó la lectura por permisos: revisa que tu usuario tenga rol "admin" (en minúsculas) en la colección "usuarios", y que hayas publicado las reglas más recientes de firestore.rules.'
+          : `No se pudo cargar la información (${err.code || err.message}).`
+      )
+    } finally {
+      setCargando(false)
+    }
   }
 
   useEffect(() => {
@@ -87,6 +98,12 @@ export default function AdminPresidentes() {
         correo corresponde a cada rol y, la primera vez que esa persona entre con "Continuar con
         Google", el sistema le asigna ese rol automáticamente — sin contraseñas.
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-md p-3 mb-6">
+          {error}
+        </div>
+      )}
 
       <div className="grid md:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl border border-slate-200 p-5">
