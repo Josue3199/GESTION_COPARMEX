@@ -2,10 +2,23 @@ import { useAuth } from '../context/AuthContext'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import logoCoparmex from '../assets/logo-coparmex.jpg'
 
-const NAV_ADMIN = [
-  { to: '/admin', label: 'Panel' },
-  { to: '/admin/presidentes', label: 'Presidentes' },
-]
+// El link de "Accesos" (activar/dar de alta usuarios) es exclusivo del
+// rol admin; la directora ve el resto del panel pero no esa opción.
+const navParaRol = (rol) => {
+  if (rol === 'admin') {
+    return [
+      { to: '/admin', label: 'Panel' },
+      { to: '/admin/presidentes', label: 'Accesos' },
+    ]
+  }
+  if (rol === 'directora') {
+    return [{ to: '/admin', label: 'Panel' }]
+  }
+  if (rol === 'presidente') {
+    return NAV_PRESIDENTE
+  }
+  return []
+}
 
 const NAV_PRESIDENTE = [
   { to: '/mi-comision', label: 'Mi plan' },
@@ -23,7 +36,7 @@ export default function Layout({ children, titulo }) {
     navigate('/login')
   }
 
-  const nav = perfil?.rol === 'admin' ? NAV_ADMIN : perfil?.rol === 'presidente' ? NAV_PRESIDENTE : []
+  const nav = navParaRol(perfil?.rol)
 
   return (
     <div className="min-h-screen bg-slate-50 relative">
