@@ -20,18 +20,58 @@ service cloud.firestore {
         && userDoc().data.comisionId == comisionId;
     }
 
-    match /usuarios/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+    function correoAutorizado() {
+      return isSignedIn() && request.auth.token.email != null
+        ? request.auth.token.email.lower()
+        : '';
+    }
+
+    function existeAutorizacion() {
+      return correoAutorizado() != '' &&
+        exists(/databases/$(database)/documents/presidentesAutorizados/$(correoAutorizado()));
+    }
+
+    function autorizacion() {
+      return get(/databases/$(database)/documents/presidentesAutorizados/$(correoAutorizado())).data;
+    }
+
+    // Correos de Gmail autorizados por la administradora (no hay correo
+    // institucional). Solo la administradora los da de alta; cualquier
+    // usuario autenticado puede leer la colección para saber si su propio
+    // correo ya fue autorizado (necesario para el auto-registro).
+    match /presidentesAutorizados/{correo} {
+      allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
+    match /usuarios/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+
+      // La administradora crea/edita cualquier usuario. Además, una persona
+      // puede crear SU PROPIO documento la primera vez que entra con Google,
+      // pero solo si su correo fue autorizado antes y solo con los datos
+      // (comisión) que la administradora definió para ese correo.
+      allow create: if isAdmin() || (
+        isSignedIn() &&
+        request.auth.uid == userId &&
+        existeAutorizacion() &&
+        request.resource.data.rol == 'presidente' &&
+        request.resource.data.comisionId == autorizacion().comisionId
+      );
+
+      allow update, delete: if isAdmin();
+    }
+
     match /comisiones/{comisionId} {
+      // Todos los usuarios con sesión (admin y CUALQUIER presidente) pueden
+      // leer cualquier comisión: así todos los presidentes son "visores" de
+      // los planes de todos, no solo del propio.
       allow read: if isSignedIn();
       allow create, delete: if isAdmin();
 
-      // Admin can edit everything (incl. estado / aprobación).
-      // A president can only edit their own commission's "plan" field,
-      // and can only push status into 'en_revision', never approve it themselves.
+      // La administradora puede editar todo (incl. aprobar/rechazar).
+      // El presidente dueño de la comisión solo puede tocar su propio plan,
+      // y solo puede dejarlo en 'borrador' o 'en_revision' (nunca aprobarlo).
       allow update: if isAdmin() ||
         (
           isPresidenteDe(comisionId) &&
@@ -40,6 +80,27 @@ service cloud.firestore {
           (request.resource.data.estado == 'borrador' ||
            request.resource.data.estado == 'en_revision')
         );
+
+      // Notas/comentarios sobre el plan (no tocan el documento original).
+      // Cualquier persona con sesión puede leer y dejar una nota; solo el
+      // autor puede editar/borrar la suya, y la administradora o el
+      // presidente dueño del plan pueden marcarla como leída.
+      match /comentarios/{comentarioId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && request.resource.data.autorUid == request.auth.uid;
+        allow update: if isAdmin() ||
+          isPresidenteDe(comisionId) ||
+          (isSignedIn() && resource.data.autorUid == request.auth.uid);
+        allow delete: if isAdmin() || (isSignedIn() && resource.data.autorUid == request.auth.uid);
+      }
+
+      // Historial de versiones/estados del plan: es una bitácora, así que
+      // solo se puede agregar (nunca editar ni borrar).
+      match /historial/{versionId} {
+        allow read: if isSignedIn();
+        allow create: if isAdmin() || isPresidenteDe(comisionId);
+        allow update, delete: if false;
+      }
     }
   }
 }
