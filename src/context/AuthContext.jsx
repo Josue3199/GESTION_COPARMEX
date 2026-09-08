@@ -6,8 +6,10 @@ import { auth, db, googleProvider } from '../firebase/config'
 const AuthContext = createContext(null)
 
 // Si el correo de Google con el que entró la persona fue autorizado antes
-// por la administradora (colección `presidentesAutorizados`), se crea aquí
-// mismo su documento en `usuarios` la primera vez que inicia sesión.
+// (colección `presidentesAutorizados`, que guarda accesos de presidente Y
+// de directora), se crea aquí mismo su documento en `usuarios` la
+// primera vez que inicia sesión. Solo el rol "admin" puede dar de alta
+// estas autorizaciones (ver AdminPresidentes.jsx).
 async function autoRegistrarSiEstaAutorizado(firebaseUser) {
   const correo = (firebaseUser.email || '').toLowerCase()
   if (!correo) return null
@@ -16,11 +18,12 @@ async function autoRegistrarSiEstaAutorizado(firebaseUser) {
   if (!autSnap.exists()) return null
 
   const autorizacion = autSnap.data()
+  const rol = autorizacion.rol || 'presidente' // compatibilidad con autorizaciones viejas
   const nuevoPerfil = {
-    rol: 'presidente',
-    comisionId: autorizacion.comisionId,
+    rol,
     nombre: autorizacion.nombre || firebaseUser.displayName || correo,
     correo,
+    ...(rol === 'presidente' ? { comisionId: autorizacion.comisionId } : {}),
   }
   await setDoc(doc(db, 'usuarios', firebaseUser.uid), nuevoPerfil)
   return nuevoPerfil
@@ -31,7 +34,7 @@ export function AuthProvider({ children }) {
   const [perfil, setPerfil] = useState(null) // { rol, comisionId, nombre, correo }
   const [cargando, setCargando] = useState(true)
   // true cuando la persona ya entró con Google pero su correo no fue
-  // autorizado por la administradora (ni es admin ni presidente registrado).
+  // autorizado (no tiene usuario ni está en `presidentesAutorizados`).
   const [noAutorizado, setNoAutorizado] = useState(false)
 
   useEffect(() => {
