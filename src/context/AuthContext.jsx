@@ -1,21 +1,59 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth'
-import { doc, getDoc } from 'firebase/firestore'
-import { auth, db } from '../firebase/config'
+import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { auth, db, googleProvider } from '../firebase/config'
 
 const AuthContext = createContext(null)
 
+// Si el correo de Google con el que entró la persona fue autorizado antes
+// por la administradora (colección `presidentesAutorizados`), se crea aquí
+// mismo su documento en `usuarios` la primera vez que inicia sesión.
+async function autoRegistrarSiEstaAutorizado(firebaseUser) {
+  const correo = (firebaseUser.email || '').toLowerCase()
+  if (!correo) return null
+
+  const autSnap = await getDoc(doc(db, 'presidentesAutorizados', correo))
+  if (!autSnap.exists()) return null
+
+  const autorizacion = autSnap.data()
+  const nuevoPerfil = {
+    rol: 'presidente',
+    comisionId: autorizacion.comisionId,
+    nombre: autorizacion.nombre || firebaseUser.displayName || correo,
+    correo,
+  }
+  await setDoc(doc(db, 'usuarios', firebaseUser.uid), nuevoPerfil)
+  return nuevoPerfil
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null) // Firebase auth user
-  const [perfil, setPerfil] = useState(null) // { rol, comisionId, nombre }
+  const [perfil, setPerfil] = useState(null) // { rol, comisionId, nombre, correo }
   const [cargando, setCargando] = useState(true)
+  // true cuando la persona ya entró con Google pero su correo no fue
+  // autorizado por la administradora (ni es admin ni presidente registrado).
+  const [noAutorizado, setNoAutorizado] = useState(false)
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser)
+      setNoAutorizado(false)
+
       if (firebaseUser) {
-        const snap = await getDoc(doc(db, 'usuarios', firebaseUser.uid))
-        setPerfil(snap.exists() ? snap.data() : null)
+        const ref = doc(db, 'usuarios', firebaseUser.uid)
+        const snap = await getDoc(ref)
+
+        if (snap.exists()) {
+          setPerfil(snap.data())
+        } else {
+          const perfilAuto = await autoRegistrarSiEstaAutorizado(firebaseUser)
+          if (perfilAuto) {
+            setPerfil(perfilAuto)
+          } else {
+            setPerfil(null)
+            setNoAutorizado(true)
+          }
+        }
       } else {
         setPerfil(null)
       }
@@ -24,11 +62,11 @@ export function AuthProvider({ children }) {
     return unsub
   }, [])
 
-  const login = (email, password) => signInWithEmailAndPassword(auth, email, password)
+  const loginConGoogle = () => signInWithPopup(auth, googleProvider)
   const logout = () => signOut(auth)
 
   return (
-    <AuthContext.Provider value={{ user, perfil, cargando, login, logout }}>
+    <AuthContext.Provider value={{ user, perfil, cargando, noAutorizado, loginConGoogle, logout }}>
       {children}
     </AuthContext.Provider>
   )
