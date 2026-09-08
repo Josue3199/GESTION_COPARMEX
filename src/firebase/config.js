@@ -16,8 +16,8 @@ export const auth = getAuth(app)
 export const db = getFirestore(app)
 
 // Inicio de sesión con Google. Como los presidentes NO tienen correo
-// institucional, se acepta cualquier cuenta de Gmail: la administradora
-// "autoriza" de antemano el correo de Gmail de cada presidente (colección
+// institucional, se acepta cualquier cuenta de Gmail: el admin
+// "autoriza" de antemano el correo de Gmail de cada persona (colección
 // `presidentesAutorizados`) y, la primera vez que esa persona entra con
 // Google, el sistema crea automáticamente su perfil (ver AuthContext).
 export const googleProvider = new GoogleAuthProvider()
