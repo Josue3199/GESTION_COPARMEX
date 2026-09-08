@@ -1,40 +1,35 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { createUserWithEmailAndPassword, signOut } from 'firebase/auth'
-import { collection, doc, getDocs, query, setDoc, where } from 'firebase/firestore'
-import { db, secondaryAuth } from '../firebase/config'
+import { collection, doc, getDocs, setDoc } from 'firebase/firestore'
+import { db } from '../firebase/config'
 import Layout from '../components/Layout'
-
-const ERRORES = {
-  'auth/email-already-in-use': 'Ese correo ya tiene una cuenta creada.',
-  'auth/invalid-email': 'El correo no es válido.',
-  'auth/weak-password': 'La contraseña debe tener al menos 6 caracteres.',
-}
 
 export default function AdminPresidentes() {
   const [comisiones, setComisiones] = useState([])
-  const [presidentes, setPresidentes] = useState([])
+  const [autorizados, setAutorizados] = useState([])
+  const [usuarios, setUsuarios] = useState([])
   const [cargando, setCargando] = useState(true)
 
   const [nombre, setNombre] = useState('')
   const [correo, setCorreo] = useState('')
-  const [password, setPassword] = useState('')
   const [comisionId, setComisionId] = useState('')
-  const [creando, setCreando] = useState(false)
+  const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState('')
   const [error, setError] = useState('')
 
   const cargar = async () => {
     setCargando(true)
-    const [comisionesSnap, presidentesSnap] = await Promise.all([
+    const [comisionesSnap, autorizadosSnap, usuariosSnap] = await Promise.all([
       getDocs(collection(db, 'comisiones')),
-      getDocs(query(collection(db, 'usuarios'), where('rol', '==', 'presidente'))),
+      getDocs(collection(db, 'presidentesAutorizados')),
+      getDocs(collection(db, 'usuarios')),
     ])
     const listaComisiones = comisionesSnap.docs
       .map((d) => ({ id: d.id, ...d.data() }))
       .sort((a, b) => a.nombreComision.localeCompare(b.nombreComision))
     setComisiones(listaComisiones)
-    setPresidentes(presidentesSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    setAutorizados(autorizadosSnap.docs.map((d) => ({ correo: d.id, ...d.data() })))
+    setUsuarios(usuariosSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
     if (listaComisiones.length && !comisionId) setComisionId(listaComisiones[0].id)
     setCargando(false)
   }
@@ -44,30 +39,31 @@ export default function AdminPresidentes() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const comisionesConCuenta = new Set(presidentes.map((p) => p.comisionId))
+  const yaInicioSesion = (correoAutorizado) =>
+    usuarios.some((u) => (u.correo || '').toLowerCase() === correoAutorizado)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setMensaje('')
-    setCreando(true)
+    const correoLimpio = correo.trim().toLowerCase()
+    if (!correoLimpio) return
+    setGuardando(true)
     try {
-      const cred = await createUserWithEmailAndPassword(secondaryAuth, correo, password)
-      await setDoc(doc(db, 'usuarios', cred.user.uid), {
-        rol: 'presidente',
+      await setDoc(doc(db, 'presidentesAutorizados', correoLimpio), {
+        nombre: nombre.trim(),
         comisionId,
-        nombre,
       })
-      await signOut(secondaryAuth)
-      setMensaje(`Cuenta creada para ${nombre}. Ya puede iniciar sesión con ese correo y contraseña.`)
+      setMensaje(
+        `Listo: ${correoLimpio} ya puede entrar con Google y quedará como presidente de la comisión seleccionada.`
+      )
       setNombre('')
       setCorreo('')
-      setPassword('')
       await cargar()
     } catch (err) {
-      setError(ERRORES[err.code] || 'No se pudo crear la cuenta. Intenta de nuevo.')
+      setError('No se pudo guardar la autorización. Intenta de nuevo.')
     } finally {
-      setCreando(false)
+      setGuardando(false)
     }
   }
 
@@ -77,34 +73,32 @@ export default function AdminPresidentes() {
         ← Volver al panel
       </Link>
 
+      <div className="bg-brand-50 border border-brand-100 text-brand-700 text-sm rounded-md p-3 mb-6">
+        Los presidentes no tienen correo institucional, así que el acceso es con su cuenta de
+        Gmail personal: aquí solo registras qué correo de Google corresponde a cada comisión. La
+        primera vez que esa persona entre a la app con "Continuar con Google", el sistema le
+        asigna automáticamente esa comisión — no se crea ninguna contraseña.
+      </div>
+
       <div className="grid md:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <h2 className="font-bold text-slate-800 mb-4">Crear cuenta de presidente</h2>
+          <h2 className="font-bold text-slate-800 mb-4">Autorizar presidente</h2>
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
               <label className="block text-sm font-medium text-slate-600 mb-1">Nombre completo</label>
               <input required className="input" value={nombre} onChange={(e) => setNombre(e.target.value)} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-1">Correo</label>
+              <label className="block text-sm font-medium text-slate-600 mb-1">
+                Correo de Gmail (con el que iniciará sesión)
+              </label>
               <input
                 required
                 type="email"
                 className="input"
+                placeholder="nombre@gmail.com"
                 value={correo}
                 onChange={(e) => setCorreo(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-600 mb-1">
-                Contraseña temporal (mínimo 6 caracteres)
-              </label>
-              <input
-                required
-                minLength={6}
-                className="input"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
               />
             </div>
             <div>
@@ -118,7 +112,6 @@ export default function AdminPresidentes() {
                 {comisiones.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.nombreComision}
-                    {comisionesConCuenta.has(c.id) ? ' (ya tiene cuenta)' : ''}
                   </option>
                 ))}
               </select>
@@ -129,28 +122,39 @@ export default function AdminPresidentes() {
 
             <button
               type="submit"
-              disabled={creando || cargando || !comisiones.length}
+              disabled={guardando || cargando || !comisiones.length}
               className="w-full bg-brand-600 hover:bg-brand-700 text-white font-medium py-2 rounded-md transition disabled:opacity-60"
             >
-              {creando ? 'Creando…' : 'Crear cuenta'}
+              {guardando ? 'Guardando…' : 'Autorizar correo'}
             </button>
           </form>
         </div>
 
         <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <h2 className="font-bold text-slate-800 mb-4">Cuentas ya creadas</h2>
+          <h2 className="font-bold text-slate-800 mb-4">Correos autorizados</h2>
           {cargando ? (
             <p className="text-slate-500 text-sm">Cargando…</p>
-          ) : presidentes.length === 0 ? (
-            <p className="text-slate-500 text-sm">Todavía no has creado ninguna cuenta de presidente.</p>
+          ) : autorizados.length === 0 ? (
+            <p className="text-slate-500 text-sm">Todavía no has autorizado ningún correo.</p>
           ) : (
             <ul className="divide-y divide-slate-100">
-              {presidentes.map((p) => {
-                const com = comisiones.find((c) => c.id === p.comisionId)
+              {autorizados.map((a) => {
+                const com = comisiones.find((c) => c.id === a.comisionId)
+                const activo = yaInicioSesion(a.correo)
                 return (
-                  <li key={p.id} className="py-2">
-                    <p className="text-sm font-medium text-slate-800">{p.nombre}</p>
-                    <p className="text-xs text-slate-500">{com?.nombreComision || p.comisionId}</p>
+                  <li key={a.correo} className="py-2 flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">{a.nombre}</p>
+                      <p className="text-xs text-slate-500">{a.correo}</p>
+                      <p className="text-xs text-slate-500">{com?.nombreComision || a.comisionId}</p>
+                    </div>
+                    <span
+                      className={`shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                        activo ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      {activo ? 'Ya inició sesión' : 'Pendiente de entrar'}
+                    </span>
                   </li>
                 )
               })}
