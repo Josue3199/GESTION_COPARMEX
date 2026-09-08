@@ -2,7 +2,7 @@ import { ESTADOS } from '../data/comisiones'
 import logoCoparmex from '../assets/logo-coparmex.jpg'
 
 // Vista "de documento / impresión" de un plan de trabajo. Se usa tanto para
-// que la administradora revise un plan como para que cualquier presidente
+// que la directora revise un plan como para que cualquier presidente
 // consulte el plan de otra comisión: en ambos casos se ve igual a una hoja
 // lista para imprimir o guardar como PDF (Ctrl+P / Cmd+P -> "Guardar PDF").
 export default function PlanVista({ comision, acciones, extra }) {
