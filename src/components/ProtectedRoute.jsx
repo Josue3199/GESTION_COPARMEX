@@ -1,6 +1,11 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
+const inicioPorRol = (rol) =>
+  rol === 'admin' || rol === 'directora' ? '/admin' : '/mi-comision'
+
+// rolRequerido puede ser un string ('admin') o un arreglo de roles
+// permitidos (['admin', 'directora']).
 export default function ProtectedRoute({ children, rolRequerido }) {
   const { user, perfil, cargando } = useAuth()
 
@@ -14,8 +19,9 @@ export default function ProtectedRoute({ children, rolRequerido }) {
 
   if (!user || !perfil) return <Navigate to="/login" replace />
 
-  if (rolRequerido && perfil.rol !== rolRequerido) {
-    return <Navigate to={perfil.rol === 'admin' ? '/admin' : '/mi-comision'} replace />
+  const rolesPermitidos = Array.isArray(rolRequerido) ? rolRequerido : [rolRequerido]
+  if (rolRequerido && !rolesPermitidos.includes(perfil.rol)) {
+    return <Navigate to={inicioPorRol(perfil.rol)} replace />
   }
 
   return children
