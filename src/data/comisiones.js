@@ -64,6 +64,24 @@ export const SEED_COMISIONES = RAW.map((c) => ({
   plan: null,
 }))
 
+// Estados posibles de un plan de trabajo y cómo se muestran en toda la app.
+export const ESTADOS = {
+  pendiente: { texto: 'Pendiente', color: 'bg-red-100 text-red-700', dot: 'bg-red-500' },
+  borrador: { texto: 'Borrador', color: 'bg-slate-100 text-slate-600', dot: 'bg-slate-400' },
+  en_revision: { texto: 'En revisión', color: 'bg-amber-100 text-amber-700', dot: 'bg-amber-500' },
+  aprobado: { texto: 'Aprobado', color: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
+  rechazado: { texto: 'Rechazado', color: 'bg-rose-100 text-rose-700', dot: 'bg-rose-500' },
+}
+
+// Campos del plan usados para calcular el % de avance en el dashboard del presidente.
+export const CAMPOS_PLAN_PARA_AVANCE = [
+  'objetivoGeneral',
+  'objetivosEspecificos',
+  'metas',
+  'recursos',
+  'observaciones',
+]
+
 export const PLAN_VACIO = {
   objetivoGeneral: '',
   objetivosEspecificos: '',
