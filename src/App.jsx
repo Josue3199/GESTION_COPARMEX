@@ -6,6 +6,8 @@ import AdminDashboard from './pages/AdminDashboard'
 import ComisionDetail from './pages/ComisionDetail'
 import AdminPresidentes from './pages/AdminPresidentes'
 import PresidenteDashboard from './pages/PresidenteDashboard'
+import EditorPlan from './pages/EditorPlan'
+import MisPlanes from './pages/MisPlanes'
 import MiAvance from './pages/MiAvance'
 import PlanesPresidentes from './pages/PlanesPresidentes'
 import VerPlanComision from './pages/VerPlanComision'
@@ -55,6 +57,22 @@ export default function App() {
             element={
               <ProtectedRoute rolRequerido="presidente">
                 <PresidenteDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/mi-comision/editar"
+            element={
+              <ProtectedRoute rolRequerido="presidente">
+                <EditorPlan />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/mi-comision/historial"
+            element={
+              <ProtectedRoute rolRequerido="presidente">
+                <MisPlanes />
               </ProtectedRoute>
             }
           />
