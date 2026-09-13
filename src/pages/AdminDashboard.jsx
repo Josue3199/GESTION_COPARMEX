@@ -155,6 +155,8 @@ export default function AdminDashboard() {
             </p>
           </div>
 
+          <BorradoresEnProgreso comisiones={comisiones} />
+
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
             <StatCard
               icono="total"
@@ -283,5 +285,58 @@ function StatCard({ icono, label, value, activo, onClick }) {
       <p className="text-2xl font-bold text-slate-800 leading-none">{value}</p>
       <p className="text-xs text-slate-500">{label}</p>
     </button>
+  )
+}
+
+// Comisiones con un plan a medio llenar, sin enviar todavía. No se puede
+// "restaurar" el borrador de alguien más (es su plan, sigue siendo privado
+// mientras lo edita), pero sí sirve para que el admin/directora vea quién
+// lleva rato sin enviar nada y le dé seguimiento.
+function BorradoresEnProgreso({ comisiones }) {
+  const pendientes = comisiones
+    .filter((c) => c.tieneBorrador)
+    .sort((a, b) => new Date(a.borradorActualizadoEn || 0) - new Date(b.borradorActualizadoEn || 0))
+
+  if (pendientes.length === 0) return null
+
+  const diasDesde = (fecha) => {
+    if (!fecha) return null
+    const dias = Math.floor((Date.now() - new Date(fecha).getTime()) / 86400000)
+    return dias
+  }
+
+  return (
+    <details className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden mb-6 group">
+      <summary className="cursor-pointer list-none px-5 py-3 flex items-center justify-between hover:bg-amber-100/60">
+        <span className="flex items-center gap-2">
+          <svg
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            className="h-4 w-4 text-amber-600 transition-transform duration-200 group-open:rotate-90"
+          >
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+          <span className="font-semibold text-amber-800">
+            {pendientes.length} {pendientes.length === 1 ? 'comisión tiene' : 'comisiones tienen'} un plan sin enviar
+          </span>
+        </span>
+        <span className="text-xs text-amber-600">Ver detalle</span>
+      </summary>
+      <ul className="divide-y divide-amber-100 border-t border-amber-100 bg-white">
+        {pendientes.map((c) => {
+          const dias = diasDesde(c.borradorActualizadoEn)
+          return (
+            <li key={c.id} className="px-5 py-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-slate-800">{c.nombreComision}</p>
+                <p className="text-xs text-slate-500">{c.presidenteNombre} · {c.area}</p>
+              </div>
+              <span className="text-xs text-amber-700 font-medium whitespace-nowrap">
+                {dias === null ? 'Sin fecha' : dias === 0 ? 'Editado hoy' : `Sin enviar hace ${dias} día${dias === 1 ? '' : 's'}`}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </details>
   )
 }
