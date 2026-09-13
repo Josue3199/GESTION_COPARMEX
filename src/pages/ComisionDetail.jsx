@@ -39,6 +39,15 @@ export default function ComisionDetail() {
         ← Volver al panel
       </Link>
 
+      {comision.tieneBorrador && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-700 text-sm rounded-md p-3 mb-4 print:hidden">
+          ✎ Esta persona tiene un plan sin enviar a medio llenar
+          {comision.borradorActualizadoEn &&
+            ` (última edición: ${new Date(comision.borradorActualizadoEn).toLocaleString('es-MX')})`}
+          . Lo que ves abajo es el último plan oficial, no ese borrador.
+        </div>
+      )}
+
       <PlanVista
         comision={comision}
         acciones={
