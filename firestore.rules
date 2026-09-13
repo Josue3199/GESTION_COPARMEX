@@ -86,16 +86,29 @@ service cloud.firestore {
       allow create, delete: if esStaff();
 
       // Admin y directora pueden editar todo (incl. aprobar/rechazar).
-      // El presidente dueño de la comisión solo puede tocar su propio plan,
-      // y solo puede dejarlo en 'borrador' o 'en_revision' (nunca aprobarlo).
+      // El presidente dueño de la comisión solo puede tocar su propio plan
+      // (y las banderas de "tiene borrador"), y solo puede dejar el estado
+      // oficial en 'borrador' o 'en_revision' (nunca aprobarlo).
       allow update: if esStaff() ||
         (
           isPresidenteDe(comisionId) &&
           request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['plan', 'estado', 'actualizadoEn']) &&
-          (request.resource.data.estado == 'borrador' ||
-           request.resource.data.estado == 'en_revision')
+            .hasOnly(['plan', 'estado', 'actualizadoEn', 'tieneBorrador', 'borradorActualizadoEn']) &&
+          (
+            !request.resource.data.diff(resource.data).affectedKeys().hasAny(['estado']) ||
+            request.resource.data.estado == 'borrador' ||
+            request.resource.data.estado == 'en_revision'
+          )
         );
+
+      // Borrador de trabajo (plan sin enviar): es privado del presidente
+      // dueño mientras lo edita. Admin/directora solo pueden leerlo, para
+      // saber que existe un plan a medio llenar y darle seguimiento — nunca
+      // editarlo, porque no es su plan.
+      match /borrador/{borradorId} {
+        allow read: if esStaff() || isPresidenteDe(comisionId);
+        allow write: if isPresidenteDe(comisionId);
+      }
 
       // Notas/comentarios sobre el plan (no tocan el documento original).
       // Cualquier persona con sesión puede leer y dejar una nota; solo el
