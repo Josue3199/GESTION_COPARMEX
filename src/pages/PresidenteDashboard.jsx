@@ -1,77 +1,61 @@
 import { useEffect, useState } from 'react'
-import { addDoc, collection, doc, getDoc, updateDoc } from 'firebase/firestore'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { deleteDoc, doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
-import { PLAN_VACIO, ESTADOS } from '../data/comisiones'
+import { ESTADOS } from '../data/comisiones'
 import Layout from '../components/Layout'
 
+// Punto de entrada del presidente: en vez de aventarlo directo a un
+// formulario (que antes se quedaba con datos de un plan anterior), aquí
+// elige qué quiere hacer. El formulario real vive en EditorPlan.jsx.
 export default function PresidenteDashboard() {
   const { perfil } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
+
   const [comision, setComision] = useState(null)
-  const [plan, setPlan] = useState(PLAN_VACIO)
+  const [borrador, setBorrador] = useState(null)
   const [cargando, setCargando] = useState(true)
-  const [guardando, setGuardando] = useState(false)
-  const [mensaje, setMensaje] = useState('')
+
+  const cargar = async () => {
+    if (!perfil?.comisionId) return
+    setCargando(true)
+    const [snap, bSnap] = await Promise.all([
+      getDoc(doc(db, 'comisiones', perfil.comisionId)),
+      getDoc(doc(db, 'comisiones', perfil.comisionId, 'borrador', 'actual')),
+    ])
+    if (snap.exists()) setComision({ id: snap.id, ...snap.data() })
+    setBorrador(bSnap.exists() ? bSnap.data() : null)
+    setCargando(false)
+  }
 
   useEffect(() => {
-    const cargar = async () => {
-      if (!perfil?.comisionId) return
-      const snap = await getDoc(doc(db, 'comisiones', perfil.comisionId))
-      if (snap.exists()) {
-        const data = snap.data()
-        setComision({ id: snap.id, ...data })
-        if (data.plan) setPlan(data.plan)
-      }
-      setCargando(false)
-    }
     cargar()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [perfil])
 
-  const actualizarCampo = (campo, valor) => setPlan((p) => ({ ...p, [campo]: valor }))
+  const continuarBorrador = () => navigate('/mi-comision/editar', { state: { modo: 'borrador' } })
 
-  const actualizarActividad = (i, campo, valor) => {
-    setPlan((p) => {
-      const actividades = [...p.actividades]
-      actividades[i] = { ...actividades[i], [campo]: valor }
-      return { ...p, actividades }
-    })
+  const generarNuevo = async () => {
+    if (borrador) {
+      const confirmar = window.confirm(
+        'Ya tienes un borrador sin enviar. Si generas un plan nuevo, ese borrador se va a borrar.\n\n¿Seguro que quieres continuar?'
+      )
+      if (!confirmar) return
+      await deleteDoc(doc(db, 'comisiones', comision.id, 'borrador', 'actual')).catch(() => {})
+      await updateDoc(doc(db, 'comisiones', comision.id), { tieneBorrador: false }).catch(() => {})
+    }
+    navigate('/mi-comision/editar', { state: { modo: 'nuevo' } })
   }
 
-  const agregarActividad = () =>
-    setPlan((p) => ({
-      ...p,
-      actividades: [...p.actividades, { actividad: '', objetivo: '', responsable: '', fecha: '', indicador: '' }],
-    }))
-
-  const quitarActividad = (i) =>
-    setPlan((p) => ({ ...p, actividades: p.actividades.filter((_, idx) => idx !== i) }))
-
-  const guardar = async (nuevoEstado) => {
-    setGuardando(true)
-    setMensaje('')
-    const fecha = new Date().toISOString()
-    await updateDoc(doc(db, 'comisiones', comision.id), {
-      plan,
-      estado: nuevoEstado,
-      actualizadoEn: fecha,
-    })
-    // Registro en el historial del plan (se ve en "Mi avance").
-    await addDoc(collection(db, 'comisiones', comision.id, 'historial'), {
-      estado: nuevoEstado,
-      fecha,
-      autorNombre: perfil?.nombre || 'Presidente',
-    })
-    setComision((c) => ({ ...c, estado: nuevoEstado }))
-    setMensaje(nuevoEstado === 'en_revision' ? 'Plan enviado para revisión.' : 'Borrador guardado.')
-    setGuardando(false)
-  }
-
-  if (cargando) return <Layout titulo="Cargando…"><p>Cargando…</p></Layout>
+  if (cargando) return <Layout titulo="Mi plan"><p>Cargando…</p></Layout>
   if (!comision)
     return (
-      <Layout titulo="Sin comisión asignada">
+      <Layout titulo="Mi plan">
         <p className="text-slate-500">
-          Tu cuenta no tiene una comisión asignada todavía. Pide al administrador del sistema que la vincule.
+          Tu cuenta no tiene una comisión asignada todavía. Pide al administrador del sistema que
+          la vincule.
         </p>
       </Layout>
     )
@@ -80,117 +64,57 @@ export default function PresidenteDashboard() {
 
   return (
     <Layout titulo={comision.nombreComision}>
-      <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4">
+      {location.state?.enviado && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-md p-3 mb-4">
+          ✓ Tu plan se envió para revisión correctamente.
+        </div>
+      )}
+
+      <div className="bg-white rounded-xl border border-slate-200 p-5 mb-6">
         <p className="text-sm text-slate-500">{comision.area}</p>
         <p className="text-sm text-slate-600">
           {comision.presidenteCargo}: {comision.presidenteNombre}
         </p>
         <span className={`text-xs mt-2 inline-block px-2.5 py-1 rounded-full font-semibold ${estado.color}`}>
-          Estado actual: {estado.texto}
+          Estado oficial del plan: {estado.texto}
         </span>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-5">
-        <h2 className="font-bold text-slate-800">Plan de trabajo</h2>
+      <div className="grid sm:grid-cols-3 gap-4">
+        <button
+          onClick={continuarBorrador}
+          disabled={!borrador}
+          className={`text-left bg-white rounded-xl border p-5 transition ${
+            borrador ? 'border-amber-300 hover:shadow-md hover:border-amber-400' : 'border-slate-200 opacity-50 cursor-not-allowed'
+          }`}
+        >
+          <p className="text-2xl mb-2">📝</p>
+          <p className="font-bold text-slate-800 mb-1">Consultar borrador</p>
+          <p className="text-xs text-slate-500">
+            {borrador
+              ? `Tienes un plan sin enviar. Última edición: ${new Date(borrador.actualizadoEn).toLocaleString('es-MX')}`
+              : 'No tienes ningún borrador guardado por ahora.'}
+          </p>
+        </button>
 
-        <Campo label="1. Objetivo general">
-          <textarea
-            className="input"
-            rows={2}
-            value={plan.objetivoGeneral}
-            onChange={(e) => actualizarCampo('objetivoGeneral', e.target.value)}
-          />
-        </Campo>
+        <button
+          onClick={() => navigate('/mi-comision/historial')}
+          className="text-left bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-slate-300 transition"
+        >
+          <p className="text-2xl mb-2">📚</p>
+          <p className="font-bold text-slate-800 mb-1">Consultar mis planes</p>
+          <p className="text-xs text-slate-500">Revisa los planes que ya has enviado y sus comentarios.</p>
+        </button>
 
-        <Campo label="2. Objetivos específicos">
-          <textarea
-            className="input"
-            rows={2}
-            value={plan.objetivosEspecificos}
-            onChange={(e) => actualizarCampo('objetivosEspecificos', e.target.value)}
-          />
-        </Campo>
-
-        <div>
-          <p className="text-sm font-medium text-slate-600 mb-2">3. Actividades / proyectos</p>
-          <div className="space-y-3">
-            {plan.actividades.map((a, i) => (
-              <div key={i} className="grid grid-cols-1 sm:grid-cols-5 gap-2 items-start border border-slate-200 rounded-md p-3">
-                <input className="input" placeholder="Actividad" value={a.actividad}
-                  onChange={(e) => actualizarActividad(i, 'actividad', e.target.value)} />
-                <input className="input" placeholder="Objetivo" value={a.objetivo}
-                  onChange={(e) => actualizarActividad(i, 'objetivo', e.target.value)} />
-                <input className="input" placeholder="Responsable" value={a.responsable}
-                  onChange={(e) => actualizarActividad(i, 'responsable', e.target.value)} />
-                <input className="input" placeholder="Fecha" value={a.fecha}
-                  onChange={(e) => actualizarActividad(i, 'fecha', e.target.value)} />
-                <div className="flex gap-1">
-                  <input className="input" placeholder="Indicador" value={a.indicador}
-                    onChange={(e) => actualizarActividad(i, 'indicador', e.target.value)} />
-                  <button
-                    type="button"
-                    onClick={() => quitarActividad(i)}
-                    className="text-red-500 text-xs px-2"
-                    title="Quitar"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={agregarActividad}
-            className="mt-2 text-sm text-brand-600 hover:underline"
-          >
-            + Agregar actividad
-          </button>
-        </div>
-
-        <Campo label="4. Metas">
-          <textarea className="input" rows={2} value={plan.metas}
-            onChange={(e) => actualizarCampo('metas', e.target.value)} />
-        </Campo>
-
-        <Campo label="5. Recursos necesarios">
-          <textarea className="input" rows={2} value={plan.recursos}
-            onChange={(e) => actualizarCampo('recursos', e.target.value)} />
-        </Campo>
-
-        <Campo label="6. Observaciones">
-          <textarea className="input" rows={2} value={plan.observaciones}
-            onChange={(e) => actualizarCampo('observaciones', e.target.value)} />
-        </Campo>
-
-        {mensaje && <p className="text-sm text-emerald-600">{mensaje}</p>}
-
-        <div className="flex gap-3 pt-2">
-          <button
-            disabled={guardando}
-            onClick={() => guardar('borrador')}
-            className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium px-4 py-2 rounded-md transition disabled:opacity-60"
-          >
-            Guardar borrador
-          </button>
-          <button
-            disabled={guardando}
-            onClick={() => guardar('en_revision')}
-            className="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-4 py-2 rounded-md transition disabled:opacity-60"
-          >
-            Enviar para revisión
-          </button>
-        </div>
+        <button
+          onClick={generarNuevo}
+          className="text-left bg-white rounded-xl border border-brand-200 p-5 hover:shadow-md hover:border-brand-400 transition"
+        >
+          <p className="text-2xl mb-2">✨</p>
+          <p className="font-bold text-slate-800 mb-1">Generar nuevo plan</p>
+          <p className="text-xs text-slate-500">Abre el formulario en blanco para llenar un plan desde cero.</p>
+        </button>
       </div>
     </Layout>
-  )
-}
-
-function Campo({ label, children }) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-slate-600 mb-1">{label}</label>
-      {children}
-    </div>
   )
 }
