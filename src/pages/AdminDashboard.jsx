@@ -98,7 +98,11 @@ export default function AdminDashboard() {
 
   const toggleEstado = (estado) => setFiltroEstado((actual) => (actual === estado ? null : estado))
 
-  const areasVisibles = filtroArea === 'todas' ? AREAS : [filtroArea]
+  const areasTodas = useMemo(
+    () => Array.from(new Set([...AREAS, ...comisiones.map((c) => c.area)])).sort(),
+    [comisiones]
+  )
+  const areasVisibles = filtroArea === 'todas' ? areasTodas : [filtroArea]
 
   const porArea = (area) =>
     comisiones
@@ -109,7 +113,13 @@ export default function AdminDashboard() {
   return (
     <Layout titulo="Panel de administración">
       {perfil?.rol === 'admin' && (
-        <div className="flex justify-end mb-4">
+        <div className="flex justify-end gap-4 mb-4">
+          <Link
+            to="/admin/ramas"
+            className="text-sm font-medium text-brand-600 hover:underline"
+          >
+            Gestionar ramas →
+          </Link>
           <Link
             to="/admin/presidentes"
             className="text-sm font-medium text-brand-600 hover:underline"
@@ -188,7 +198,7 @@ export default function AdminDashboard() {
             >
               Todas las áreas
             </button>
-            {AREAS.map((a) => (
+            {areasTodas.map((a) => (
               <button
                 key={a}
                 onClick={() => setFiltroArea(a)}
