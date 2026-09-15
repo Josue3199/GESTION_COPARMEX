@@ -9,7 +9,19 @@ export default function PlanVista({ comision, acciones, extra }) {
   const plan = comision.plan
   const estado = ESTADOS[comision.estado] || ESTADOS.pendiente
 
-  const imprimir = () => window.print()
+  const imprimir = () => {
+    // El navegador pone el <title> de la página en el encabezado de
+    // impresión; lo cambiamos un momento para que ahí salga el nombre del
+    // plan en vez de "Comisiones de Trabajo", y lo regresamos al terminar.
+    const tituloOriginal = document.title
+    document.title = comision.nombreComision || tituloOriginal
+    const restaurar = () => {
+      document.title = tituloOriginal
+      window.removeEventListener('afterprint', restaurar)
+    }
+    window.addEventListener('afterprint', restaurar)
+    window.print()
+  }
 
   if (!plan) {
     return (
