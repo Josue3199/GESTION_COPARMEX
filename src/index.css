@@ -7,3 +7,13 @@
     @apply w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500;
   }
 }
+
+@media print {
+  /* Que los colores de los badges de estado sí se vean en el PDF/impresión
+     (Chrome/Edge por default los quita a menos que la persona active
+     "Gráficos de fondo" en el diálogo de imprimir; esto ayuda cuando sí). */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
