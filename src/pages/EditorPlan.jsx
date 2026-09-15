@@ -5,6 +5,7 @@ import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
 import { PLAN_VACIO, ESTADOS } from '../data/comisiones'
 import Layout from '../components/Layout'
+import AutoTextarea from '../components/AutoTextarea'
 
 const borradorRef = (comisionId) => doc(db, 'comisiones', comisionId, 'borrador', 'actual')
 
@@ -188,18 +189,14 @@ export default function EditorPlan() {
         </div>
 
         <Campo label="1. Objetivo general">
-          <textarea
-            className="input"
-            rows={2}
+          <AutoTextarea
             value={plan.objetivoGeneral}
             onChange={(e) => actualizarCampo('objetivoGeneral', e.target.value)}
           />
         </Campo>
 
         <Campo label="2. Objetivos específicos">
-          <textarea
-            className="input"
-            rows={2}
+          <AutoTextarea
             value={plan.objetivosEspecificos}
             onChange={(e) => actualizarCampo('objetivosEspecificos', e.target.value)}
           />
@@ -243,17 +240,17 @@ export default function EditorPlan() {
         </div>
 
         <Campo label="4. Metas">
-          <textarea className="input" rows={2} value={plan.metas}
+          <AutoTextarea value={plan.metas}
             onChange={(e) => actualizarCampo('metas', e.target.value)} />
         </Campo>
 
         <Campo label="5. Recursos necesarios">
-          <textarea className="input" rows={2} value={plan.recursos}
+          <AutoTextarea value={plan.recursos}
             onChange={(e) => actualizarCampo('recursos', e.target.value)} />
         </Campo>
 
         <Campo label="6. Observaciones">
-          <textarea className="input" rows={2} value={plan.observaciones}
+          <AutoTextarea value={plan.observaciones}
             onChange={(e) => actualizarCampo('observaciones', e.target.value)} />
         </Campo>
 
