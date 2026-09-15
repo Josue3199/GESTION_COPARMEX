@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import AdminDashboard from './pages/AdminDashboard'
 import ComisionDetail from './pages/ComisionDetail'
 import AdminPresidentes from './pages/AdminPresidentes'
+import AdminRamas from './pages/AdminRamas'
 import PresidenteDashboard from './pages/PresidenteDashboard'
 import EditorPlan from './pages/EditorPlan'
 import MisPlanes from './pages/MisPlanes'
@@ -43,12 +44,20 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          {/* Solo el admin (no la directora) puede activar accesos. */}
+          {/* Solo el admin (no la directora) puede activar accesos y crear ramas. */}
           <Route
             path="/admin/presidentes"
             element={
               <ProtectedRoute rolRequerido="admin">
                 <AdminPresidentes />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/ramas"
+            element={
+              <ProtectedRoute rolRequerido="admin">
+                <AdminRamas />
               </ProtectedRoute>
             }
           />
