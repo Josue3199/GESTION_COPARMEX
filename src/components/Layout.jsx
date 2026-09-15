@@ -8,6 +8,7 @@ const navParaRol = (rol) => {
   if (rol === 'admin') {
     return [
       { to: '/admin', label: 'Panel' },
+      { to: '/admin/ramas', label: 'Ramas' },
       { to: '/admin/presidentes', label: 'Accesos' },
     ]
   }
