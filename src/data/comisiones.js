@@ -2,7 +2,7 @@
 // Se usan únicamente para inicializar Firestore la primera vez (ver AdminSeed).
 // El "id" es un slug estable que se usa como ID del documento en la colección `comisiones`.
 
-const slugify = (s) =>
+export const slugify = (s) =>
   s
     .toLowerCase()
     .normalize('NFD')
