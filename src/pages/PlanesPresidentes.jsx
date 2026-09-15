@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase/config'
@@ -24,6 +24,11 @@ export default function PlanesPresidentes() {
     cargar()
   }, [])
 
+  const areasTodas = useMemo(
+    () => Array.from(new Set([...AREAS, ...comisiones.map((c) => c.area)])).sort(),
+    [comisiones]
+  )
+
   const visibles = comisiones
     .filter((c) => filtroArea === 'todas' || c.area === filtroArea)
     .sort((a, b) => a.area.localeCompare(b.area) || a.nombreComision.localeCompare(b.nombreComision))
@@ -45,7 +50,7 @@ export default function PlanesPresidentes() {
         >
           Todas las áreas
         </button>
-        {AREAS.map((a) => (
+        {areasTodas.map((a) => (
           <button
             key={a}
             onClick={() => setFiltroArea(a)}
