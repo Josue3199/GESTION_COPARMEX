@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { getRedirectResult, onAuthStateChanged, signInWithRedirect, signOut } from 'firebase/auth'
+import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { auth, db, googleProvider } from '../firebase/config'
 
@@ -36,23 +36,11 @@ export function AuthProvider({ children }) {
   // true cuando la persona ya entró con Google pero su correo no fue
   // autorizado (no tiene usuario ni está en `presidentesAutorizados`).
   const [noAutorizado, setNoAutorizado] = useState(false)
-  // Mensaje amigable cuando falla el regreso del login con Google (ej. Safari
-  // en modo privado, o un navegador integrado como el de WhatsApp/Instagram).
+  // Mensaje amigable si falla el login con Google (ej. navegador integrado
+  // de WhatsApp/Instagram, o el usuario cierra la ventana de Google).
   const [errorLogin, setErrorLogin] = useState('')
 
   useEffect(() => {
-    // signInWithPopup falla seguido en Safari (bloquea el pop-up o no
-    // comparte el sessionStorage entre ventanas). Con signInWithRedirect la
-    // persona sale a la página de Google y regresa aquí mismo; el resultado
-    // se recoge una sola vez al cargar la app.
-    getRedirectResult(auth).catch((err) => {
-      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return
-      setErrorLogin(
-        'No se pudo completar el inicio de sesión con Google en este navegador. Si lo abriste desde WhatsApp, ' +
-          'Instagram o Facebook, ábrelo en Safari o Chrome directamente e intenta de nuevo.'
-      )
-    })
-
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser)
       setNoAutorizado(false)
@@ -80,7 +68,10 @@ export function AuthProvider({ children }) {
     return unsub
   }, [])
 
-  const loginConGoogle = () => signInWithRedirect(auth, googleProvider)
+  // Volvemos a signInWithPopup: es lo que ya funcionaba bien. El único caso
+  // real que rompe el login es un navegador integrado (WhatsApp/Instagram/
+  // Facebook), y eso Login.jsx ya lo detecta y avisa antes de intentar.
+  const loginConGoogle = () => signInWithPopup(auth, googleProvider)
   const logout = () => signOut(auth)
 
   return (
