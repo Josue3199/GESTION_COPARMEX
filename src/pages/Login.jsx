@@ -13,11 +13,17 @@ function esNavegadorIntegrado() {
 }
 
 export default function Login() {
-  const { loginConGoogle, logout, noAutorizado, user } = useAuth()
+  const { loginConGoogle, logout, noAutorizado, user, cargando: preparandoAuth } = useAuth()
   const navigate = useNavigate()
   const [error, setError] = useState('')
   const [cargando, setCargando] = useState(false)
   const navegadorIntegrado = esNavegadorIntegrado()
+  // Mientras Firebase todavía está preparando su canal interno de
+  // autenticación (unos milisegundos al cargar la página), el botón se
+  // queda deshabilitado: si le dan clic justo en ese instante, el intento
+  // se pierde y hay que darle una segunda vez. Así siempre funciona a la
+  // primera.
+  const botonListo = !preparandoAuth
 
   const handleGoogle = async () => {
     setError('')
@@ -82,7 +88,7 @@ export default function Login() {
 
             <button
               onClick={handleGoogle}
-              disabled={cargando || navegadorIntegrado}
+              disabled={cargando || navegadorIntegrado || !botonListo}
               className="w-full flex items-center justify-center gap-2 border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium py-2.5 rounded-md transition disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <svg viewBox="0 0 48 48" className="h-5 w-5">
@@ -91,7 +97,7 @@ export default function Login() {
                 <path fill="#4CAF50" d="M24 44c5.5 0 10.4-1.9 14.3-5.1l-6.6-5.4C29.6 35.4 27 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.6 5.1C9.5 39.6 16.2 44 24 44z"/>
                 <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.6l6.6 5.4C41.9 35.8 44 30.3 44 24c0-1.3-.1-2.7-.4-3.5z"/>
               </svg>
-              {cargando ? 'Entrando…' : 'Continuar con Google'}
+              {cargando ? 'Entrando…' : !botonListo ? 'Preparando…' : 'Continuar con Google'}
             </button>
           </>
         )}
