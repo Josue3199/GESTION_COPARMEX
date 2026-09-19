@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { PLAN_VACIO, ESTADOS } from '../data/comisiones'
 import Layout from '../components/Layout'
 import AutoTextarea from '../components/AutoTextarea'
+import { leerBorradorLocal, guardarBorradorLocal, borrarBorradorLocal } from '../utils/borradorLocal'
 
 const borradorRef = (comisionId) => doc(db, 'comisiones', comisionId, 'borrador', 'actual')
 
@@ -29,6 +30,9 @@ export default function EditorPlan() {
   const debounceRef = useRef(null)
   const planActualRef = useRef(plan)
   planActualRef.current = plan
+  // Evita que el guardado-al-salir resucite el borrador justo después de
+  // limpiarlo o enviarlo (ambas acciones desmontan esta pantalla).
+  const yaResueltoRef = useRef(false)
 
   useEffect(() => {
     const cargar = async () => {
@@ -37,12 +41,24 @@ export default function EditorPlan() {
       if (snap.exists()) setComision({ id: snap.id, ...snap.data() })
 
       if (modo === 'nuevo') {
+        borrarBorradorLocal(perfil.comisionId)
         setPlan(PLAN_VACIO)
       } else {
+        // La copia local (guardada al instante en cada tecleo) es más
+        // confiable que la de Firestore para recuperar exactamente lo
+        // último que se escribió, así que se prefiere si existe.
+        const local = leerBorradorLocal(perfil.comisionId)
         const bSnap = await getDoc(borradorRef(perfil.comisionId))
-        if (bSnap.exists()) {
-          setPlan(bSnap.data().plan)
-          setUltimoGuardado(bSnap.data().actualizadoEn)
+        const remoto = bSnap.exists() ? bSnap.data() : null
+
+        const masReciente =
+          local && (!remoto || new Date(local.actualizadoEn) >= new Date(remoto.actualizadoEn))
+            ? local
+            : remoto
+
+        if (masReciente) {
+          setPlan(masReciente.plan)
+          setUltimoGuardado(masReciente.actualizadoEn)
         } else {
           setPlan(PLAN_VACIO)
         }
@@ -72,6 +88,14 @@ export default function EditorPlan() {
     }
   }
 
+  // Copia local instantánea: se guarda en cada cambio (sin esperar los 2s
+  // del autoguardado a Firestore), para que ni un cierre inmediato de la
+  // pestaña pierda lo que se llevaba escrito.
+  useEffect(() => {
+    if (cargando || !comision) return
+    guardarBorradorLocal(comision.id, plan, new Date().toISOString())
+  }, [plan, cargando, comision])
+
   // Autoguardado: 2s después de que la persona deja de escribir, y también
   // al salir de esta pantalla (cambiar de página, cerrar sesión, etc.), para
   // que nunca se pierda lo que llevaba avanzado.
@@ -89,7 +113,7 @@ export default function EditorPlan() {
 
   useEffect(() => {
     return () => {
-      if (comision) guardarBorrador(true)
+      if (comision && !yaResueltoRef.current) guardarBorrador(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comision])
@@ -114,8 +138,9 @@ export default function EditorPlan() {
     setPlan((p) => ({ ...p, actividades: p.actividades.filter((_, idx) => idx !== i) }))
 
   const limpiarPlan = () => {
-    if (!window.confirm('¿Seguro que quieres limpiar el formulario? Se borrará todo lo escrito en esta pantalla.')) return
+    if (!window.confirm('¿Seguro que quieres limpiar el formulario? Se borrará todo lo escrito, incluyendo la copia guardada en este navegador.')) return
     setPlan(PLAN_VACIO)
+    borrarBorradorLocal(comision.id)
     setMensaje('Formulario limpiado. No olvides guardar o enviar cuando termines.')
   }
 
@@ -136,9 +161,11 @@ export default function EditorPlan() {
         autorNombre: perfil?.nombre || 'Presidente',
         plan, // guardamos una copia del plan enviado para "Mis planes"
       })
-      // Se borra el borrador de trabajo: la próxima vez que abran
-      // "Generar nuevo plan" el formulario aparece en blanco.
+      // Se borra el borrador de trabajo (remoto y local): la próxima vez
+      // que abran "Generar nuevo plan" el formulario aparece en blanco.
+      yaResueltoRef.current = true
       await deleteDoc(borradorRef(comision.id)).catch(() => {})
+      borrarBorradorLocal(comision.id)
       navigate('/mi-comision', { state: { enviado: true } })
     } catch (err) {
       setMensaje('No se pudo enviar el plan. Intenta de nuevo.')
