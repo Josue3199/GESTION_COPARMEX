@@ -217,6 +217,7 @@ export default function EditorPlan() {
 
         <Campo label="1. Objetivo general">
           <AutoTextarea
+            label="1. Objetivo general"
             value={plan.objetivoGeneral}
             onChange={(e) => actualizarCampo('objetivoGeneral', e.target.value)}
           />
@@ -224,6 +225,7 @@ export default function EditorPlan() {
 
         <Campo label="2. Objetivos específicos">
           <AutoTextarea
+            label="2. Objetivos específicos"
             value={plan.objetivosEspecificos}
             onChange={(e) => actualizarCampo('objetivosEspecificos', e.target.value)}
           />
@@ -267,17 +269,17 @@ export default function EditorPlan() {
         </div>
 
         <Campo label="4. Metas">
-          <AutoTextarea value={plan.metas}
+          <AutoTextarea label="4. Metas" value={plan.metas}
             onChange={(e) => actualizarCampo('metas', e.target.value)} />
         </Campo>
 
         <Campo label="5. Recursos necesarios">
-          <AutoTextarea value={plan.recursos}
+          <AutoTextarea label="5. Recursos necesarios" value={plan.recursos}
             onChange={(e) => actualizarCampo('recursos', e.target.value)} />
         </Campo>
 
         <Campo label="6. Observaciones">
-          <AutoTextarea value={plan.observaciones}
+          <AutoTextarea label="6. Observaciones" value={plan.observaciones}
             onChange={(e) => actualizarCampo('observaciones', e.target.value)} />
         </Campo>
 
