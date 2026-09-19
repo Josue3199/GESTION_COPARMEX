@@ -5,6 +5,7 @@ import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
 import { ESTADOS } from '../data/comisiones'
 import Layout from '../components/Layout'
+import { leerBorradorLocal, borrarBorradorLocal } from '../utils/borradorLocal'
 
 // Punto de entrada del presidente: en vez de aventarlo directo a un
 // formulario (que antes se quedaba con datos de un plan anterior), aquí
@@ -26,7 +27,15 @@ export default function PresidenteDashboard() {
       getDoc(doc(db, 'comisiones', perfil.comisionId, 'borrador', 'actual')),
     ])
     if (snap.exists()) setComision({ id: snap.id, ...snap.data() })
-    setBorrador(bSnap.exists() ? bSnap.data() : null)
+
+    // La copia local (guardada al instante en cada tecleo) puede llevar
+    // más avance que la de Firestore si hubo un cierre justo antes de que
+    // el autoguardado remoto alcanzara a correr; se usa la más reciente.
+    const local = perfil.comisionId ? leerBorradorLocal(perfil.comisionId) : null
+    const remoto = bSnap.exists() ? bSnap.data() : null
+    const masReciente =
+      local && (!remoto || new Date(local.actualizadoEn) >= new Date(remoto.actualizadoEn)) ? local : remoto
+    setBorrador(masReciente)
     setCargando(false)
   }
 
@@ -45,6 +54,7 @@ export default function PresidenteDashboard() {
       if (!confirmar) return
       await deleteDoc(doc(db, 'comisiones', comision.id, 'borrador', 'actual')).catch(() => {})
       await updateDoc(doc(db, 'comisiones', comision.id), { tieneBorrador: false }).catch(() => {})
+      borrarBorradorLocal(comision.id)
     }
     navigate('/mi-comision/editar', { state: { modo: 'nuevo' } })
   }
