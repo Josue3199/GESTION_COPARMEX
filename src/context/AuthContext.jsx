@@ -5,78 +5,104 @@ import { auth, db, googleProvider } from '../firebase/config'
 
 const AuthContext = createContext(null)
 
-// Si el correo de Google con el que entró la persona fue autorizado antes
-// (colección `presidentesAutorizados`, que guarda accesos de presidente Y
-// de directora), se crea aquí mismo su documento en `usuarios` la
-// primera vez que inicia sesión. Solo el rol "admin" puede dar de alta
-// estas autorizaciones (ver AdminPresidentes.jsx).
+// Si el correo de Google fue autorizado previamente, crea el perfil en
+// usuarios/{uid}. Esto permite que el primer acceso no tenga que crear
+// manualmente el UID en Firestore.
 async function autoRegistrarSiEstaAutorizado(firebaseUser) {
-  const correo = (firebaseUser.email || '').toLowerCase()
+  const correo = (firebaseUser.email || '').trim().toLowerCase()
   if (!correo) return null
 
   const autSnap = await getDoc(doc(db, 'presidentesAutorizados', correo))
   if (!autSnap.exists()) return null
 
   const autorizacion = autSnap.data()
-  const rol = autorizacion.rol || 'presidente' // compatibilidad con autorizaciones viejas
+  const rol = autorizacion.rol || 'presidente'
+
+  if (rol === 'presidente' && !autorizacion.comisionId) {
+    throw new Error('La autorización existe, pero no tiene comisionId.')
+  }
+
   const nuevoPerfil = {
     rol,
     nombre: autorizacion.nombre || firebaseUser.displayName || correo,
     correo,
     ...(rol === 'presidente' ? { comisionId: autorizacion.comisionId } : {}),
   }
+
   await setDoc(doc(db, 'usuarios', firebaseUser.uid), nuevoPerfil)
   return nuevoPerfil
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null) // Firebase auth user
-  const [perfil, setPerfil] = useState(null) // { rol, comisionId, nombre, correo }
+  const [user, setUser] = useState(null)
+  const [perfil, setPerfil] = useState(null)
   const [cargando, setCargando] = useState(true)
-  // true cuando la persona ya entró con Google pero su correo no fue
-  // autorizado (no tiene usuario ni está en `presidentesAutorizados`).
   const [noAutorizado, setNoAutorizado] = useState(false)
-  // Mensaje amigable si falla el login con Google (ej. navegador integrado
-  // de WhatsApp/Instagram, o el usuario cierra la ventana de Google).
   const [errorLogin, setErrorLogin] = useState('')
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      setCargando(true)
       setUser(firebaseUser)
+      setPerfil(null)
       setNoAutorizado(false)
+      setErrorLogin('')
 
-      if (firebaseUser) {
+      if (!firebaseUser) {
+        setCargando(false)
+        return
+      }
+
+      try {
         const ref = doc(db, 'usuarios', firebaseUser.uid)
         const snap = await getDoc(ref)
 
         if (snap.exists()) {
           setPerfil(snap.data())
-        } else {
-          const perfilAuto = await autoRegistrarSiEstaAutorizado(firebaseUser)
-          if (perfilAuto) {
-            setPerfil(perfilAuto)
-          } else {
-            setPerfil(null)
-            setNoAutorizado(true)
-          }
+          return
         }
-      } else {
-        setPerfil(null)
+
+        const perfilAuto = await autoRegistrarSiEstaAutorizado(firebaseUser)
+        if (perfilAuto) {
+          setPerfil(perfilAuto)
+        } else {
+          setNoAutorizado(true)
+        }
+      } catch (err) {
+        console.error('Error resolviendo perfil después del login:', err)
+        const codigo = err?.code || ''
+        if (codigo === 'permission-denied') {
+          setErrorLogin(
+            'Google sí inició sesión, pero Firestore rechazó la lectura/creación del perfil. Publica las reglas de firestore.rules y vuelve a intentar.'
+          )
+        } else {
+          setErrorLogin(
+            `Google sí inició sesión, pero no se pudo cargar tu perfil${codigo ? ` (${codigo})` : ''}.`
+          )
+        }
+      } finally {
+        setCargando(false)
       }
-      setCargando(false)
     })
+
     return unsub
   }, [])
 
-  // Volvemos a signInWithPopup: es lo que ya funcionaba bien. El único caso
-  // real que rompe el login es un navegador integrado (WhatsApp/Instagram/
-  // Facebook), y eso Login.jsx ya lo detecta y avisa antes de intentar.
   const loginConGoogle = () => signInWithPopup(auth, googleProvider)
   const logout = () => signOut(auth)
 
   return (
     <AuthContext.Provider
-      value={{ user, perfil, cargando, noAutorizado, errorLogin, setErrorLogin, loginConGoogle, logout }}
+      value={{
+        user,
+        perfil,
+        cargando,
+        noAutorizado,
+        errorLogin,
+        setErrorLogin,
+        loginConGoogle,
+        logout,
+      }}
     >
       {children}
     </AuthContext.Provider>
