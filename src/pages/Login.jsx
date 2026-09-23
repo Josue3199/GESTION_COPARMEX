@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import logoCoparmex from '../assets/logo-coparmex.jpg'
@@ -13,11 +13,20 @@ function esNavegadorIntegrado() {
 }
 
 export default function Login() {
-  const { loginConGoogle, logout, noAutorizado, user, cargando: preparandoAuth } = useAuth()
+  const { loginConGoogle, logout, noAutorizado, user, perfil, cargando: preparandoAuth, errorLogin } = useAuth()
   const navigate = useNavigate()
   const [error, setError] = useState('')
   const [cargando, setCargando] = useState(false)
   const navegadorIntegrado = esNavegadorIntegrado()
+
+  // No navegamos inmediatamente después del popup: esperamos a que
+  // AuthContext termine de cargar/crear usuarios/{uid}. Esto evita una
+  // carrera en la que ProtectedRoute ve perfil=null y manda de regreso a /login.
+  useEffect(() => {
+    if (!preparandoAuth && user && perfil) {
+      navigate('/', { replace: true })
+    }
+  }, [preparandoAuth, user, perfil, navigate])
   // Mientras Firebase todavía está preparando su canal interno de
   // autenticación (unos milisegundos al cargar la página), el botón se
   // queda deshabilitado: si le dan clic justo en ese instante, el intento
@@ -30,7 +39,6 @@ export default function Login() {
     setCargando(true)
     try {
       await loginConGoogle()
-      navigate('/')
     } catch (err) {
       if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
         setError('No se pudo iniciar sesión con Google. Intenta de nuevo.')
@@ -84,7 +92,9 @@ export default function Login() {
               Entra con la cuenta de Google que registraron para ti.
             </p>
 
-            {error && <p className="text-sm text-red-600 mb-3 text-center">{error}</p>}
+            {(error || errorLogin) && (
+              <p className="text-sm text-red-600 mb-3 text-center">{error || errorLogin}</p>
+            )}
 
             <button
               onClick={handleGoogle}
