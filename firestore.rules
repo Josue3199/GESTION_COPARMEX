@@ -10,16 +10,20 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/usuarios/$(request.auth.uid));
     }
 
+    function userDocExists() {
+      return isSignedIn() && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid));
+    }
+
     // "admin": único rol que puede activar accesos (dar de alta correos en
     // `presidentesAutorizados`) y administrar la colección `usuarios`.
     function isAdmin() {
-      return isSignedIn() && userDoc().data.rol == 'admin';
+      return userDocExists() && userDoc().data.rol == 'admin';
     }
 
     // "directora": hace todo lo demás del panel (ver, aprobar,
     // rechazar, comentar planes) pero NUNCA activa accesos nuevos.
     function isDirectora() {
-      return isSignedIn() && userDoc().data.rol == 'directora';
+      return userDocExists() && userDoc().data.rol == 'directora';
     }
 
     function esStaff() {
@@ -28,6 +32,7 @@ service cloud.firestore {
 
     function isPresidenteDe(comisionId) {
       return isSignedIn()
+        && userDocExists()
         && userDoc().data.rol == 'presidente'
         && userDoc().data.comisionId == comisionId;
     }
