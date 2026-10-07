@@ -41,7 +41,7 @@ const RAW = [
   { area: 'Desarrollo Social', nombre: 'Mayra Ponce Martínez', cargo: 'Presidenta', comision: 'Educación' },
   { area: 'Desarrollo Social', nombre: 'María Isabel García Valencia', cargo: 'Presidenta', comision: 'Seguridad Social y Salud' },
   { area: 'Desarrollo Social', nombre: 'Ricardo Quezada Puente', cargo: 'Presidente', comision: 'Organización y Planeación de Eventos' },
-  { area: 'Desarrollo Social', nombre: 'María Magdalena Hernández Miramón', cargo: 'Presidenta', comision: 'Laboral' },
+  { area: 'Desarrollo Social', nombre: 'Yessica Paola Cruz Torres', cargo: 'Presidenta', comision: 'Laboral' },
 
   // Desarrollo Económico
   { area: 'Desarrollo Económico', nombre: 'Roberto Carlos Figueroa Cerritos', cargo: 'Presidente', comision: 'Energía' },
