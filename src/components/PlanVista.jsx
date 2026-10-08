@@ -1,4 +1,5 @@
 import { ESTADOS } from '../data/comisiones'
+import { usePresidentes } from '../utils/presidentes'
 import logoCoparmex from '../assets/logo-coparmex.jpg'
 
 // Vista "de documento / impresión" de un plan de trabajo. Se usa tanto para
@@ -6,6 +7,7 @@ import logoCoparmex from '../assets/logo-coparmex.jpg'
 // consulte el plan de otra comisión: en ambos casos se ve igual a una hoja
 // lista para imprimir o guardar como PDF (Ctrl+P / Cmd+P -> "Guardar PDF").
 export default function PlanVista({ comision, acciones, extra }) {
+  const { nombreDe, cargoDe } = usePresidentes()
   const plan = comision.plan
   const estado = ESTADOS[comision.estado] || ESTADOS.pendiente
 
@@ -62,7 +64,7 @@ export default function PlanVista({ comision, acciones, extra }) {
         </div>
 
         <div className="grid sm:grid-cols-2 gap-2 text-sm mb-8">
-          <p><span className="font-semibold">{comision.presidenteCargo}:</span> {comision.presidenteNombre}</p>
+          <p><span className="font-semibold">{cargoDe(comision.id)}:</span> {nombreDe(comision.id)}</p>
           <p><span className="font-semibold">Estado:</span> {estado.texto}</p>
         </div>
 
