@@ -6,12 +6,14 @@ import { useAuth } from '../context/AuthContext'
 import { PLAN_VACIO, ESTADOS } from '../data/comisiones'
 import Layout from '../components/Layout'
 import AutoTextarea from '../components/AutoTextarea'
+import { usePresidentes } from '../utils/presidentes'
 import { leerBorradorLocal, guardarBorradorLocal, borrarBorradorLocal } from '../utils/borradorLocal'
 
 const borradorRef = (comisionId) => doc(db, 'comisiones', comisionId, 'borrador', 'actual')
 
 export default function EditorPlan() {
   const { perfil } = useAuth()
+  const { nombreDe, cargoDe } = usePresidentes()
   const location = useLocation()
   const navigate = useNavigate()
   const modo = location.state?.modo // 'nuevo' | 'borrador' | undefined
@@ -192,7 +194,7 @@ export default function EditorPlan() {
         <div>
           <p className="text-sm text-slate-500">{comision.area}</p>
           <p className="text-sm text-slate-600">
-            {comision.presidenteCargo}: {comision.presidenteNombre}
+            {cargoDe(comision.id)}: {nombreDe(comision.id) || perfil?.nombre}
           </p>
           <span className={`text-xs mt-2 inline-block px-2.5 py-1 rounded-full font-semibold ${estado.color}`}>
             Estado oficial: {estado.texto}
