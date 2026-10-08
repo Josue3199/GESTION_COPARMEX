@@ -4,6 +4,7 @@ import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { AREAS, ESTADOS } from '../data/comisiones'
 import { useAuth } from '../context/AuthContext'
+import { usePresidentes } from '../utils/presidentes'
 import Layout from '../components/Layout'
 
 // Listado, solo para presidentes, de TODAS las comisiones: cualquier
@@ -11,6 +12,7 @@ import Layout from '../components/Layout'
 // (solo lectura, en la vista tipo documento de VerPlanComision).
 export default function PlanesPresidentes() {
   const { perfil } = useAuth()
+  const { nombreDe } = usePresidentes()
   const [comisiones, setComisiones] = useState([])
   const [cargando, setCargando] = useState(true)
   const [filtroArea, setFiltroArea] = useState('todas')
@@ -86,7 +88,7 @@ export default function PlanesPresidentes() {
                     {estado.texto}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500">{c.presidenteNombre}</p>
+                <p className="text-xs text-slate-500">{nombreDe(c.id)}</p>
                 <p className="text-xs text-slate-400">{c.area}</p>
               </Link>
             )
