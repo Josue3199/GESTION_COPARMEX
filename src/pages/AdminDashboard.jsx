@@ -4,6 +4,7 @@ import { collection, doc, getDocs, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { AREAS, SEED_COMISIONES, ESTADOS } from '../data/comisiones'
 import { useAuth } from '../context/AuthContext'
+import { usePresidentes } from '../utils/presidentes'
 import Layout from '../components/Layout'
 
 const ICONOS = {
@@ -61,6 +62,7 @@ export default function AdminDashboard() {
   const [filtroArea, setFiltroArea] = useState('todas')
   const [filtroEstado, setFiltroEstado] = useState(null)
   const [sembrando, setSembrando] = useState(false)
+  const { nombreDe } = usePresidentes()
 
   const cargar = async () => {
     setCargando(true)
@@ -261,7 +263,7 @@ export default function AdminDashboard() {
                               {estado.texto}
                             </span>
                           </div>
-                          <p className="text-xs text-slate-500">{c.presidenteNombre}</p>
+                          <p className="text-xs text-slate-500">{nombreDe(c.id)}</p>
                         </Link>
                       )
                     })}
@@ -303,6 +305,7 @@ function StatCard({ icono, label, value, activo, onClick }) {
 // mientras lo edita), pero sí sirve para que el admin/directora vea quién
 // lleva rato sin enviar nada y le dé seguimiento.
 function BorradoresEnProgreso({ comisiones }) {
+  const { nombreDe } = usePresidentes()
   const pendientes = comisiones
     .filter((c) => c.tieneBorrador)
     .sort((a, b) => new Date(a.borradorActualizadoEn || 0) - new Date(b.borradorActualizadoEn || 0))
@@ -338,7 +341,7 @@ function BorradoresEnProgreso({ comisiones }) {
             <li key={c.id} className="px-5 py-3 flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-medium text-slate-800">{c.nombreComision}</p>
-                <p className="text-xs text-slate-500">{c.presidenteNombre} · {c.area}</p>
+                <p className="text-xs text-slate-500">{nombreDe(c.id)} · {c.area}</p>
               </div>
               <span className="text-xs text-amber-700 font-medium whitespace-nowrap">
                 {dias === null ? 'Sin fecha' : dias === 0 ? 'Editado hoy' : `Sin enviar hace ${dias} día${dias === 1 ? '' : 's'}`}
