@@ -1,5 +1,7 @@
-// Datos base extraídos de "COMISIONES DE TRABAJO" (Norma Angélica Romero Ramón).
-// Se usan únicamente para inicializar Firestore la primera vez (ver AdminSeed).
+// Catálogo base de comisiones (solo nombre y área). Se usa únicamente para
+// inicializar Firestore la primera vez. Aquí NO van nombres de personas: quién
+// preside cada comisión sale de las cuentas registradas en "Accesos y roles"
+// (colección `presidentesAutorizados`, ver src/utils/presidentes.js).
 // El "id" es un slug estable que se usa como ID del documento en la colección `comisiones`.
 
 export const slugify = (s) =>
@@ -20,46 +22,44 @@ export const AREAS = [
 
 const RAW = [
   // Desarrollo Empresarial
-  { area: 'Desarrollo Empresarial', nombre: 'Alma Aurora Quintana Camacho', cargo: 'Presidenta', comision: 'Capital Humano' },
-  { area: 'Desarrollo Empresarial', nombre: 'Azul Solis Cervantes', cargo: 'Presidenta', comision: 'Empresarios Jóvenes' },
-  { area: 'Desarrollo Empresarial', nombre: 'Antonio Molina Palacios', cargo: 'Presidente', comision: 'Financiamiento' },
-  { area: 'Desarrollo Empresarial', nombre: 'Cynthia Benavides Chávez', cargo: 'Presidenta', comision: 'Innovación Empresarial' },
-  { area: 'Desarrollo Empresarial', nombre: 'Yessica Paola Cruz Torres', cargo: 'Presidenta', comision: 'Mujeres Empresarias' },
-  { area: 'Desarrollo Empresarial', nombre: 'Marco Antonio Ruelas Velazquéz', cargo: 'Presidenta', comision: 'Negocios / Emprendimiento' },
-  { area: 'Desarrollo Empresarial', nombre: 'Linda Saraí Solis Cervantes', cargo: 'Presidenta', comision: 'Networking / Inteligencia Artificial' },
-  { area: 'Desarrollo Empresarial', nombre: 'Genoveva Martínez Mendoza', cargo: 'Presidenta', comision: 'Seguridad Industrial y Medio Ambiente' },
-  { area: 'Desarrollo Empresarial', nombre: 'Alfredo González Ángeles', cargo: 'Presidente', comision: 'Transformación Digital' },
-  { area: 'Desarrollo Empresarial', nombre: 'Rodrigo Franco Benavides', cargo: 'Presidente', comision: 'Competitividad y Mejora Regulatoria' },
+  { area: 'Desarrollo Empresarial', comision: 'Capital Humano' },
+  { area: 'Desarrollo Empresarial', comision: 'Empresarios Jóvenes' },
+  { area: 'Desarrollo Empresarial', comision: 'Financiamiento' },
+  { area: 'Desarrollo Empresarial', comision: 'Innovación Empresarial' },
+  { area: 'Desarrollo Empresarial', comision: 'Mujeres Empresarias' },
+  { area: 'Desarrollo Empresarial', comision: 'Negocios / Emprendimiento' },
+  { area: 'Desarrollo Empresarial', comision: 'Networking / Inteligencia Artificial' },
+  { area: 'Desarrollo Empresarial', comision: 'Seguridad Industrial y Medio Ambiente' },
+  { area: 'Desarrollo Empresarial', comision: 'Transformación Digital' },
+  { area: 'Desarrollo Empresarial', comision: 'Competitividad y Mejora Regulatoria' },
 
   // Desarrollo Democrático
-  { area: 'Desarrollo Democrático', nombre: 'Teodoro Barba Espinosa', cargo: 'Presidente', comision: 'Enlace Legislativo y Seguridad' },
+  { area: 'Desarrollo Democrático', comision: 'Enlace Legislativo y Seguridad' },
 
   // Desarrollo Social
-  { area: 'Desarrollo Social', nombre: 'Odett Rodríguez Mares', cargo: 'Presidenta', comision: 'Responsabilidad Social' },
-  { area: 'Desarrollo Social', nombre: 'Juan Manuel Lozada', cargo: 'Presidente', comision: 'Cultura y Deporte' },
-  { area: 'Desarrollo Social', nombre: 'Apolo Valdez Cerezo', cargo: 'Presidente', comision: 'Desarrollo Urbano y Vivienda' },
-  { area: 'Desarrollo Social', nombre: 'Mayra Ponce Martínez', cargo: 'Presidenta', comision: 'Educación' },
-  { area: 'Desarrollo Social', nombre: 'María Isabel García Valencia', cargo: 'Presidenta', comision: 'Seguridad Social y Salud' },
-  { area: 'Desarrollo Social', nombre: 'Ricardo Quezada Puente', cargo: 'Presidente', comision: 'Organización y Planeación de Eventos' },
-  { area: 'Desarrollo Social', nombre: 'Yessica Paola Cruz Torres', cargo: 'Presidenta', comision: 'Laboral' },
+  { area: 'Desarrollo Social', comision: 'Responsabilidad Social' },
+  { area: 'Desarrollo Social', comision: 'Cultura y Deporte' },
+  { area: 'Desarrollo Social', comision: 'Desarrollo Urbano y Vivienda' },
+  { area: 'Desarrollo Social', comision: 'Educación' },
+  { area: 'Desarrollo Social', comision: 'Seguridad Social y Salud' },
+  { area: 'Desarrollo Social', comision: 'Organización y Planeación de Eventos' },
+  { area: 'Desarrollo Social', comision: 'Laboral' },
 
   // Desarrollo Económico
-  { area: 'Desarrollo Económico', nombre: 'Roberto Carlos Figueroa Cerritos', cargo: 'Presidente', comision: 'Energía' },
-  { area: 'Desarrollo Económico', nombre: 'Antonio Ignacio Cruz Juárez', cargo: 'Presidente', comision: 'Fiscal y Soporte Empresarial' },
-  { area: 'Desarrollo Económico', nombre: 'Enrique Meixueiro Soto', cargo: 'Presidente', comision: 'Sustentabilidad' },
-  { area: 'Desarrollo Económico', nombre: 'Martha Jiménez Pacheco', cargo: 'Presidenta', comision: 'Turismo' },
+  { area: 'Desarrollo Económico', comision: 'Energía' },
+  { area: 'Desarrollo Económico', comision: 'Fiscal y Soporte Empresarial' },
+  { area: 'Desarrollo Económico', comision: 'Sustentabilidad' },
+  { area: 'Desarrollo Económico', comision: 'Turismo' },
 
   // Desarrollo Internacional
-  { area: 'Desarrollo Internacional', nombre: 'Jonathan Montes Leyva', cargo: 'Presidente', comision: 'Comercio Internacional' },
-  { area: 'Desarrollo Internacional', nombre: 'Luis Chávez Rojano', cargo: 'Presidente', comision: 'Grandes Empresas' },
+  { area: 'Desarrollo Internacional', comision: 'Comercio Internacional' },
+  { area: 'Desarrollo Internacional', comision: 'Grandes Empresas' },
 ]
 
 export const SEED_COMISIONES = RAW.map((c) => ({
   id: slugify(c.comision),
   area: c.area,
   nombreComision: c.comision,
-  presidenteNombre: c.nombre,
-  presidenteCargo: c.cargo,
   estado: 'pendiente', // pendiente | borrador | en_revision | aprobado
   plan: null,
 }))
