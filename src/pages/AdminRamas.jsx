@@ -5,7 +5,7 @@ import { db } from '../firebase/config'
 import { AREAS, slugify } from '../data/comisiones'
 import Layout from '../components/Layout'
 
-const VACIO = { nombreComision: '', area: AREAS[0], presidenteCargo: 'Presidente', presidenteNombre: '' }
+const VACIO = { nombreComision: '', area: AREAS[0] }
 
 // Módulo para crear/editar/borrar "ramas" (comisiones o especialidades) como
 // entidades propias, separadas de asignar un presidente a ellas. Antes las
@@ -67,8 +67,6 @@ export default function AdminRamas() {
     setForm({
       nombreComision: c.nombreComision,
       area: c.area,
-      presidenteCargo: c.presidenteCargo || 'Presidente',
-      presidenteNombre: c.presidenteNombre || '',
     })
     setAreaPersonalizada(!areasExistentes.includes(c.area))
     setMensaje('')
@@ -92,8 +90,6 @@ export default function AdminRamas() {
         await updateDoc(doc(db, 'comisiones', editandoId), {
           nombreComision: nombre,
           area,
-          presidenteCargo: form.presidenteCargo.trim() || 'Presidente',
-          presidenteNombre: form.presidenteNombre.trim(),
         })
         setMensaje(`"${nombre}" se actualizó correctamente.`)
       } else {
@@ -107,8 +103,6 @@ export default function AdminRamas() {
         await setDoc(doc(db, 'comisiones', id), {
           nombreComision: nombre,
           area,
-          presidenteCargo: form.presidenteCargo.trim() || 'Presidente',
-          presidenteNombre: form.presidenteNombre.trim(),
           estado: 'pendiente',
           plan: null,
         })
@@ -218,33 +212,9 @@ export default function AdminRamas() {
             )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1">Cargo del titular</label>
-            <select
-              className="input"
-              value={form.presidenteCargo}
-              onChange={(e) => setForm((f) => ({ ...f, presidenteCargo: e.target.value }))}
-            >
-              <option value="Presidente">Presidente</option>
-              <option value="Presidenta">Presidenta</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1">
-              Nombre de referencia (opcional)
-            </label>
-            <input
-              className="input"
-              placeholder="Se puede dejar en blanco y llenar después"
-              value={form.presidenteNombre}
-              onChange={(e) => setForm((f) => ({ ...f, presidenteNombre: e.target.value }))}
-            />
-            <p className="text-xs text-slate-400 mt-1">
-              Es solo una etiqueta que se muestra en el panel; no vincula ningún acceso. Para que
-              alguien pueda entrar y llenar el plan, autorízala en "Accesos".
-            </p>
-          </div>
+          <p className="text-xs text-slate-400">
+            El presidente de la rama no se captura aquí: sale de la cuenta que autorices en "Accesos".
+          </p>
 
           {mensaje && <p className="text-sm text-emerald-600">{mensaje}</p>}
 
@@ -272,7 +242,7 @@ export default function AdminRamas() {
                     <p className="text-xs text-slate-500">{c.area}</p>
                     <p className="text-xs text-slate-400">
                       {accesosDe(c.id).length
-                        ? `${accesosDe(c.id).length} acceso(s) asignado(s)`
+                        ? accesosDe(c.id).map((a) => a.nombre || a.correo).join(' · ')
                         : 'Sin acceso asignado todavía'}
                     </p>
                   </div>
