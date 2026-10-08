@@ -5,6 +5,7 @@ import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
 import { ESTADOS } from '../data/comisiones'
 import Layout from '../components/Layout'
+import { usePresidentes } from '../utils/presidentes'
 import { leerBorradorLocal, borrarBorradorLocal } from '../utils/borradorLocal'
 
 // Punto de entrada del presidente: en vez de aventarlo directo a un
@@ -12,6 +13,7 @@ import { leerBorradorLocal, borrarBorradorLocal } from '../utils/borradorLocal'
 // elige qué quiere hacer. El formulario real vive en EditorPlan.jsx.
 export default function PresidenteDashboard() {
   const { perfil } = useAuth()
+  const { nombreDe, cargoDe } = usePresidentes()
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -83,7 +85,7 @@ export default function PresidenteDashboard() {
       <div className="bg-white rounded-xl border border-slate-200 p-5 mb-6">
         <p className="text-sm text-slate-500">{comision.area}</p>
         <p className="text-sm text-slate-600">
-          {comision.presidenteCargo}: {comision.presidenteNombre}
+          {cargoDe(comision.id)}: {nombreDe(comision.id) || perfil?.nombre}
         </p>
         <span className={`text-xs mt-2 inline-block px-2.5 py-1 rounded-full font-semibold ${estado.color}`}>
           Estado oficial del plan: {estado.texto}
