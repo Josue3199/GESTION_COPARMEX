@@ -19,6 +19,7 @@ export default function AdminPresidentes() {
   const [correo, setCorreo] = useState('')
   const [rol, setRol] = useState('presidente')
   const [comisionId, setComisionId] = useState('')
+  const [cargo, setCargo] = useState('Presidente')
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState('')
   const [error, setError] = useState('')
@@ -70,7 +71,7 @@ export default function AdminPresidentes() {
       await setDoc(doc(db, 'presidentesAutorizados', correoLimpio), {
         nombre: nombre.trim(),
         rol,
-        ...(rol === 'presidente' ? { comisionId } : {}),
+        ...(rol === 'presidente' ? { comisionId, cargo } : {}),
       })
       setMensaje(
         `Listo: ${correoLimpio} ya puede entrar con Google como ${ROL_LABEL[rol].toLowerCase()}.`
@@ -133,6 +134,15 @@ export default function AdminPresidentes() {
                 <option value="directora">Directora</option>
               </select>
             </div>
+            {rol === 'presidente' && (
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Cargo</label>
+                <select className="input" value={cargo} onChange={(e) => setCargo(e.target.value)}>
+                  <option value="Presidente">Presidente</option>
+                  <option value="Presidenta">Presidenta</option>
+                </select>
+              </div>
+            )}
             {rol === 'presidente' && (
               <div>
                 <label className="block text-sm font-medium text-slate-600 mb-1">Comisión a asignar</label>
