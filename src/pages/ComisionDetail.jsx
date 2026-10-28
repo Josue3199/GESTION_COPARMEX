@@ -1,34 +1,60 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { doc, getDoc, updateDoc } from 'firebase/firestore'
+import { addDoc, collection, doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase/config'
+import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 import PlanVista from '../components/PlanVista'
 import Comentarios from '../components/Comentarios'
 
 export default function ComisionDetail() {
   const { id } = useParams()
+  const { perfil } = useAuth()
   const [comision, setComision] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [actualizando, setActualizando] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const cargar = async () => {
-      const snap = await getDoc(doc(db, 'comisiones', id))
-      if (snap.exists()) setComision({ id: snap.id, ...snap.data() })
-      setCargando(false)
+      try {
+        const snap = await getDoc(doc(db, 'comisiones', id))
+        if (snap.exists()) setComision({ id: snap.id, ...snap.data() })
+      } catch (err) {
+        console.error('Error cargando la comisión:', err)
+        setError('No se pudo cargar la comisión. Revisa tu conexión e intenta de nuevo.')
+      } finally {
+        setCargando(false)
+      }
     }
     cargar()
   }, [id])
 
   const cambiarEstado = async (nuevoEstado) => {
     setActualizando(true)
-    await updateDoc(doc(db, 'comisiones', id), { estado: nuevoEstado })
-    setComision((c) => ({ ...c, estado: nuevoEstado }))
-    setActualizando(false)
+    setError('')
+    const fecha = new Date().toISOString()
+    try {
+      await updateDoc(doc(db, 'comisiones', id), { estado: nuevoEstado, actualizadoEn: fecha })
+      // Se deja constancia en el historial (sin copia del plan: ya existe
+      // la del envío) para que el presidente vea aprobaciones y rechazos
+      // en "Mi avance".
+      await addDoc(collection(db, 'comisiones', id, 'historial'), {
+        estado: nuevoEstado,
+        fecha,
+        autorNombre: perfil?.nombre || perfil?.rol || 'Administración',
+      })
+      setComision((c) => ({ ...c, estado: nuevoEstado, actualizadoEn: fecha }))
+    } catch (err) {
+      console.error('Error cambiando estado:', err)
+      setError('No se pudo cambiar el estado. Intenta de nuevo.')
+    } finally {
+      setActualizando(false)
+    }
   }
 
   if (cargando) return <Layout titulo="Cargando…"><p>Cargando…</p></Layout>
+  if (error && !comision) return <Layout titulo="Error"><p className="text-red-600 text-sm">{error}</p></Layout>
   if (!comision) return <Layout titulo="No encontrada"><p>La comisión no existe.</p></Layout>
 
   const estado = comision.estado
@@ -38,6 +64,12 @@ export default function ComisionDetail() {
       <Link to="/admin" className="text-sm text-brand-600 hover:underline mb-4 inline-block print:hidden">
         ← Volver al panel
       </Link>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-md p-3 mb-4 print:hidden">
+          {error}
+        </div>
+      )}
 
       {comision.tieneBorrador && (
         <div className="bg-amber-50 border border-amber-200 text-amber-700 text-sm rounded-md p-3 mb-4 print:hidden">
