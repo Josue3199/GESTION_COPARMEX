@@ -39,7 +39,6 @@ export default function AdminPresidentes() {
       setComisiones(listaComisiones)
       setAutorizados(autorizadosSnap.docs.map((d) => ({ correo: d.id, ...d.data() })))
       setUsuarios(usuariosSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
-      if (listaComisiones.length && !comisionId) setComisionId(listaComisiones[0].id)
     } catch (err) {
       console.error('Error cargando Accesos y roles:', err)
       setError(
@@ -66,6 +65,10 @@ export default function AdminPresidentes() {
     setMensaje('')
     const correoLimpio = correo.trim().toLowerCase()
     if (!correoLimpio) return
+    if (rol === 'presidente' && !comisionId) {
+      setError('Selecciona la comisión que presidirá esta persona antes de activar el acceso.')
+      return
+    }
     setGuardando(true)
     try {
       await setDoc(doc(db, 'presidentesAutorizados', correoLimpio), {
@@ -78,6 +81,9 @@ export default function AdminPresidentes() {
       )
       setNombre('')
       setCorreo('')
+      setComisionId('')
+      setCargo('Presidente')
+      setRol('presidente')
       await cargar()
     } catch (err) {
       setError('No se pudo guardar la autorización. Intenta de nuevo.')
@@ -152,6 +158,7 @@ export default function AdminPresidentes() {
                   value={comisionId}
                   onChange={(e) => setComisionId(e.target.value)}
                 >
+                  <option value="">Selecciona una comisión…</option>
                   {comisiones.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.nombreComision}
@@ -166,7 +173,7 @@ export default function AdminPresidentes() {
 
             <button
               type="submit"
-              disabled={guardando || cargando || (rol === 'presidente' && !comisiones.length)}
+              disabled={guardando || cargando || (rol === 'presidente' && (!comisiones.length || !comisionId))}
               className="w-full bg-brand-600 hover:bg-brand-700 text-white font-medium py-2 rounded-md transition disabled:opacity-60"
             >
               {guardando ? 'Guardando…' : 'Activar acceso'}
