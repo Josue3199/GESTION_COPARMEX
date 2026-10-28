@@ -16,12 +16,19 @@ export default function PlanesPresidentes() {
   const [comisiones, setComisiones] = useState([])
   const [cargando, setCargando] = useState(true)
   const [filtroArea, setFiltroArea] = useState('todas')
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const cargar = async () => {
-      const snap = await getDocs(collection(db, 'comisiones'))
-      setComisiones(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
-      setCargando(false)
+      try {
+        const snap = await getDocs(collection(db, 'comisiones'))
+        setComisiones(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      } catch (err) {
+        console.error('Error cargando comisiones:', err)
+        setError('No se pudieron cargar las comisiones. Revisa tu conexión e intenta de nuevo.')
+      } finally {
+        setCargando(false)
+      }
     }
     cargar()
   }, [])
@@ -69,6 +76,8 @@ export default function PlanesPresidentes() {
 
       {cargando ? (
         <p className="text-slate-500">Cargando comisiones…</p>
+      ) : error ? (
+        <p className="text-red-600 text-sm">{error}</p>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {visibles.map((c) => {
