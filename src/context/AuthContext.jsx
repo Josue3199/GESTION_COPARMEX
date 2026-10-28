@@ -5,10 +5,23 @@ import { auth, db, googleProvider } from '../firebase/config'
 
 const AuthContext = createContext(null)
 
-// Si el correo de Google fue autorizado previamente, crea el perfil en
-// usuarios/{uid}. Esto permite que el primer acceso no tenga que crear
-// manualmente el UID en Firestore.
-async function autoRegistrarSiEstaAutorizado(firebaseUser) {
+// ¿El perfil guardado ya coincide con lo autorizado por el admin?
+function perfilCoincide(actual, nuevo) {
+  if (!actual) return false
+  return (
+    actual.rol === nuevo.rol &&
+    actual.nombre === nuevo.nombre &&
+    actual.correo === nuevo.correo &&
+    (nuevo.comisionId === undefined || actual.comisionId === nuevo.comisionId)
+  )
+}
+
+// Si el correo de Google fue autorizado previamente, crea o sincroniza el
+// perfil en usuarios/{uid}. Recibe el perfil actual (o null si no existe)
+// para NO escribir cuando nada cambió: antes se hacía un setDoc en cada
+// login y, al ser un update sobre un documento ya existente, las reglas lo
+// rechazaban para todos los que no fueran admin.
+async function autoRegistrarSiEstaAutorizado(firebaseUser, perfilActual) {
   const correo = (firebaseUser.email || '').trim().toLowerCase()
   if (!correo) return null
 
@@ -29,10 +42,11 @@ async function autoRegistrarSiEstaAutorizado(firebaseUser) {
     ...(rol === 'presidente' ? { comisionId: autorizacion.comisionId } : {}),
   }
 
-  // Actualiza nombre, rol y comisión cada vez que la persona vuelve a entrar.
+  if (perfilCoincide(perfilActual, nuevoPerfil)) return perfilActual
+
   // merge conserva otros campos del perfil que no administra este módulo.
   await setDoc(doc(db, 'usuarios', firebaseUser.uid), nuevoPerfil, { merge: true })
-  return nuevoPerfil
+  return { ...(perfilActual || {}), ...nuevoPerfil }
 }
 
 export function AuthProvider({ children }) {
@@ -43,7 +57,14 @@ export function AuthProvider({ children }) {
   const [errorLogin, setErrorLogin] = useState('')
 
   useEffect(() => {
+    // Evita que una resolución lenta de un inicio de sesión anterior pise
+    // el estado de uno más reciente (o de un logout).
+    let versionActual = 0
+
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      const version = ++versionActual
+      const vigente = () => version === versionActual
+
       setCargando(true)
       setUser(firebaseUser)
       setPerfil(null)
@@ -58,20 +79,23 @@ export function AuthProvider({ children }) {
       try {
         const ref = doc(db, 'usuarios', firebaseUser.uid)
         const snap = await getDoc(ref)
+        const perfilActual = snap.exists() ? snap.data() : null
 
         // La autorización es la fuente de verdad para el nombre, rol y comisión.
         // Si el admin reasignó esta cuenta, el perfil existente se sincroniza al
         // volver a iniciar sesión. Los perfiles administrativos sin documento
         // en presidentesAutorizados conservan su perfil actual.
-        const perfilAuto = await autoRegistrarSiEstaAutorizado(firebaseUser)
+        const perfilAuto = await autoRegistrarSiEstaAutorizado(firebaseUser, perfilActual)
+        if (!vigente()) return
         if (perfilAuto) {
           setPerfil(perfilAuto)
-        } else if (snap.exists()) {
-          setPerfil(snap.data())
+        } else if (perfilActual) {
+          setPerfil(perfilActual)
         } else {
           setNoAutorizado(true)
         }
       } catch (err) {
+        if (!vigente()) return
         console.error('Error resolviendo perfil después del login:', err)
         const codigo = err?.code || ''
         if (codigo === 'permission-denied') {
@@ -84,7 +108,7 @@ export function AuthProvider({ children }) {
           )
         }
       } finally {
-        setCargando(false)
+        if (vigente()) setCargando(false)
       }
     })
 
