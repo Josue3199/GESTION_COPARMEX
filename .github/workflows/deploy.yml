@@ -13,9 +13,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
 
+      # `npm ci` usa package-lock.json: mismas versiones en cada despliegue.
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
 
       - name: Build
         run: npm run build
@@ -34,3 +39,10 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           channelId: live
           projectId: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+
+      # Las reglas de Firestore NO se publican con el deploy de Hosting.
+      # Si tu cuenta de servicio tiene el rol "Firebase Rules Admin", descomenta:
+      # - name: Deploy Firestore rules
+      #   run: npx firebase-tools deploy --only firestore:rules --project ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+      #   env:
+      #     GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/sa.json
