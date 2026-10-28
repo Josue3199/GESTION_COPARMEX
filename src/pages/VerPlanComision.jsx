@@ -14,17 +14,25 @@ export default function VerPlanComision() {
   const { id } = useParams()
   const [comision, setComision] = useState(null)
   const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const cargar = async () => {
-      const snap = await getDoc(doc(db, 'comisiones', id))
-      if (snap.exists()) setComision({ id: snap.id, ...snap.data() })
-      setCargando(false)
+      try {
+        const snap = await getDoc(doc(db, 'comisiones', id))
+        if (snap.exists()) setComision({ id: snap.id, ...snap.data() })
+      } catch (err) {
+        console.error('Error cargando la comisión:', err)
+        setError('No se pudo cargar la comisión. Revisa tu conexión e intenta de nuevo.')
+      } finally {
+        setCargando(false)
+      }
     }
     cargar()
   }, [id])
 
   if (cargando) return <Layout titulo="Cargando…"><p>Cargando…</p></Layout>
+  if (error) return <Layout titulo="Error"><p className="text-red-600 text-sm">{error}</p></Layout>
   if (!comision) return <Layout titulo="No encontrada"><p>La comisión no existe.</p></Layout>
 
   return (
