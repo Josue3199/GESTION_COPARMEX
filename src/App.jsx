@@ -12,6 +12,7 @@ import MisPlanes from './pages/MisPlanes'
 import MiAvance from './pages/MiAvance'
 import PlanesPresidentes from './pages/PlanesPresidentes'
 import VerPlanComision from './pages/VerPlanComision'
+import Directorio from './pages/Directorio'
 
 function Home() {
   const { perfil, cargando } = useAuth()
@@ -98,6 +99,14 @@ export default function App() {
             element={
               <ProtectedRoute rolRequerido="presidente">
                 <PlanesPresidentes />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/directorio"
+            element={
+              <ProtectedRoute rolRequerido={['admin', 'directora', 'presidente']}>
+                <Directorio />
               </ProtectedRoute>
             }
           />
