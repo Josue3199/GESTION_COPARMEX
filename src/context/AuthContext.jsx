@@ -29,7 +29,9 @@ async function autoRegistrarSiEstaAutorizado(firebaseUser) {
     ...(rol === 'presidente' ? { comisionId: autorizacion.comisionId } : {}),
   }
 
-  await setDoc(doc(db, 'usuarios', firebaseUser.uid), nuevoPerfil)
+  // Actualiza nombre, rol y comisión cada vez que la persona vuelve a entrar.
+  // merge conserva otros campos del perfil que no administra este módulo.
+  await setDoc(doc(db, 'usuarios', firebaseUser.uid), nuevoPerfil, { merge: true })
   return nuevoPerfil
 }
 
@@ -57,14 +59,15 @@ export function AuthProvider({ children }) {
         const ref = doc(db, 'usuarios', firebaseUser.uid)
         const snap = await getDoc(ref)
 
-        if (snap.exists()) {
-          setPerfil(snap.data())
-          return
-        }
-
+        // La autorización es la fuente de verdad para el nombre, rol y comisión.
+        // Si el admin reasignó esta cuenta, el perfil existente se sincroniza al
+        // volver a iniciar sesión. Los perfiles administrativos sin documento
+        // en presidentesAutorizados conservan su perfil actual.
         const perfilAuto = await autoRegistrarSiEstaAutorizado(firebaseUser)
         if (perfilAuto) {
           setPerfil(perfilAuto)
+        } else if (snap.exists()) {
+          setPerfil(snap.data())
         } else {
           setNoAutorizado(true)
         }
