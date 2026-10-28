@@ -62,13 +62,21 @@ export default function AdminDashboard() {
   const [filtroArea, setFiltroArea] = useState('todas')
   const [filtroEstado, setFiltroEstado] = useState(null)
   const [sembrando, setSembrando] = useState(false)
+  const [error, setError] = useState('')
   const { nombreDe } = usePresidentes()
 
   const cargar = async () => {
     setCargando(true)
-    const snap = await getDocs(collection(db, 'comisiones'))
-    setComisiones(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
-    setCargando(false)
+    setError('')
+    try {
+      const snap = await getDocs(collection(db, 'comisiones'))
+      setComisiones(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    } catch (err) {
+      console.error('Error cargando comisiones:', err)
+      setError(`No se pudieron cargar las comisiones (${err.code || err.message}).`)
+    } finally {
+      setCargando(false)
+    }
   }
 
   useEffect(() => {
@@ -77,14 +85,21 @@ export default function AdminDashboard() {
 
   const inicializarDatos = async () => {
     setSembrando(true)
-    const batch = writeBatch(db)
-    SEED_COMISIONES.forEach((c) => {
-      const { id, ...data } = c
-      batch.set(doc(db, 'comisiones', id), data, { merge: true })
-    })
-    await batch.commit()
-    await cargar()
-    setSembrando(false)
+    setError('')
+    try {
+      const batch = writeBatch(db)
+      SEED_COMISIONES.forEach((c) => {
+        const { id, ...data } = c
+        batch.set(doc(db, 'comisiones', id), data, { merge: true })
+      })
+      await batch.commit()
+      await cargar()
+    } catch (err) {
+      console.error('Error inicializando comisiones:', err)
+      setError(`No se pudieron inicializar las comisiones (${err.code || err.message}).`)
+    } finally {
+      setSembrando(false)
+    }
   }
 
   const stats = useMemo(() => {
@@ -131,9 +146,13 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-md p-3 mb-4">{error}</div>
+      )}
+
       {cargando ? (
         <p className="text-slate-500">Cargando comisiones…</p>
-      ) : comisiones.length === 0 ? (
+      ) : comisiones.length === 0 && !error ? (
         <div className="bg-white border border-dashed border-slate-300 rounded-xl p-8 text-center">
           <p className="text-slate-600 mb-4">
             Aún no hay comisiones cargadas en Firestore.
@@ -146,7 +165,7 @@ export default function AdminDashboard() {
             {sembrando ? 'Cargando…' : 'Inicializar comisiones (25)'}
           </button>
         </div>
-      ) : (
+      ) : comisiones.length === 0 ? null : (
         <>
           {/* Resumen general: de un vistazo, qué tan avanzado va todo. */}
           <div className="bg-white rounded-xl border border-slate-200 p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
@@ -167,7 +186,7 @@ export default function AdminDashboard() {
             </p>
           </div>
 
-          <BorradoresEnProgreso comisiones={comisiones} />
+          <BorradoresEnProgreso comisiones={comisiones} nombreDe={nombreDe} />
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
             <StatCard
@@ -304,8 +323,7 @@ function StatCard({ icono, label, value, activo, onClick }) {
 // "restaurar" el borrador de alguien más (es su plan, sigue siendo privado
 // mientras lo edita), pero sí sirve para que el admin/directora vea quién
 // lleva rato sin enviar nada y le dé seguimiento.
-function BorradoresEnProgreso({ comisiones }) {
-  const { nombreDe } = usePresidentes()
+function BorradoresEnProgreso({ comisiones, nombreDe }) {
   const pendientes = comisiones
     .filter((c) => c.tieneBorrador)
     .sort((a, b) => new Date(a.borradorActualizadoEn || 0) - new Date(b.borradorActualizadoEn || 0))
