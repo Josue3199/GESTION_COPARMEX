@@ -59,7 +59,18 @@ service cloud.firestore {
     // ya fue autorizado (necesario para el auto-registro).
     match /presidentesAutorizados/{correo} {
       allow read: if isSignedIn();
-      allow write: if isAdmin();
+      // Admin administra las autorizaciones. Cada presidente puede actualizar
+      // únicamente sus datos públicos de contacto; no puede cambiar rol/comisión.
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (
+        isSignedIn() &&
+        correo == correoAutorizado() &&
+        resource.data.rol == 'presidente' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'nombreDirectorio', 'correoContacto', 'telefono', 'empresa',
+          'puesto', 'linkedin', 'actualizadoEn'
+        ])
+      );
     }
 
     match /usuarios/{userId} {
