@@ -30,6 +30,13 @@ service cloud.firestore {
       return isAdmin() || isDirectora();
     }
 
+    // Usuario "activo": inició sesión Y ya tiene perfil en `usuarios`
+    // (es decir, fue autorizado). Una cuenta de Google cualquiera que NO
+    // fue autorizada ya no puede leer ni escribir nada de la plataforma.
+    function isActivo() {
+      return userDocExists();
+    }
+
     function isPresidenteDe(comisionId) {
       return isSignedIn()
         && userDocExists()
@@ -38,7 +45,7 @@ service cloud.firestore {
     }
 
     function correoAutorizado() {
-      return isSignedIn() && request.auth.token.email != null
+      return (isSignedIn() && request.auth.token.email != null)
         ? request.auth.token.email.lower()
         : '';
     }
@@ -54,11 +61,13 @@ service cloud.firestore {
 
     // Correos de Gmail autorizados por el admin (no hay correo
     // institucional): guarda tanto accesos de presidente como de
-    // directora. Solo el admin los da de alta; cualquier usuario
-    // autenticado puede leer la colección para saber si su propio correo
-    // ya fue autorizado (necesario para el auto-registro).
+    // directora. Solo el admin los da de alta.
     match /presidentesAutorizados/{correo} {
-      allow read: if isSignedIn();
+      // Leer UN documento: el dueño del correo (necesario para el
+      // auto-registro en su primer login) o cualquier usuario activo.
+      allow get: if isSignedIn() && (correo == correoAutorizado() || isActivo());
+      // Listar toda la colección (directorio, accesos): solo usuarios activos.
+      allow list: if isActivo();
       // Admin administra las autorizaciones. Cada presidente puede actualizar
       // únicamente sus datos públicos de contacto; no puede cambiar rol/comisión.
       allow create, delete: if isAdmin();
@@ -89,16 +98,29 @@ service cloud.firestore {
          request.resource.data.comisionId == autorizacion().comisionId)
       );
 
-      // Activar/editar/eliminar cuentas ya existentes sigue siendo
-      // exclusivo del admin.
-      allow update, delete: if isAdmin();
+      // Un usuario YA registrado puede re-sincronizar su propio perfil con
+      // lo que el admin autorizó (nombre, rol, comisión), pero nada más.
+      // Sin esto, el segundo inicio de sesión de cualquier presidente
+      // fallaba con permission-denied.
+      allow update: if isAdmin() || (
+        isSignedIn() &&
+        request.auth.uid == userId &&
+        existeAutorizacion() &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['rol', 'nombre', 'correo', 'comisionId']) &&
+        request.resource.data.rol == autorizacion().rol &&
+        (autorizacion().rol != 'presidente' ||
+         request.resource.data.comisionId == autorizacion().comisionId)
+      );
+
+      allow delete: if isAdmin();
     }
 
     match /comisiones/{comisionId} {
-      // Todos los usuarios con sesión (admin, directora y CUALQUIER
+      // Todos los usuarios ACTIVOS (admin, directora y CUALQUIER
       // presidente) pueden leer cualquier comisión: así todos los
       // presidentes son "visores" de los planes de todos.
-      allow read: if isSignedIn();
+      allow read: if isActivo();
       allow create, delete: if esStaff();
 
       // Admin y directora pueden editar todo (incl. aprobar/rechazar).
@@ -120,31 +142,45 @@ service cloud.firestore {
       // Borrador de trabajo (plan sin enviar): es privado del presidente
       // dueño mientras lo edita. Admin/directora solo pueden leerlo, para
       // saber que existe un plan a medio llenar y darle seguimiento — nunca
-      // editarlo, porque no es su plan.
+      // editarlo. El admin puede BORRARLO (necesario para eliminar una rama
+      // completa con todo lo que cuelga de ella).
       match /borrador/{borradorId} {
         allow read: if esStaff() || isPresidenteDe(comisionId);
         allow write: if isPresidenteDe(comisionId);
+        allow delete: if isAdmin();
       }
 
       // Notas/comentarios sobre el plan (no tocan el documento original).
-      // Cualquier persona con sesión puede leer y dejar una nota; solo el
-      // autor puede editar/borrar la suya, y el staff o el presidente dueño
-      // del plan pueden marcarla como leída.
+      // Solo usuarios activos pueden leer y dejar una nota. El autor puede
+      // editar el TEXTO de la suya; el staff o el presidente dueño del plan
+      // solo pueden marcarla como leída (campo `leido`), no reescribirla.
       match /comentarios/{comentarioId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn() && request.resource.data.autorUid == request.auth.uid;
-        allow update: if esStaff() ||
-          isPresidenteDe(comisionId) ||
-          (isSignedIn() && resource.data.autorUid == request.auth.uid);
+        allow read: if isActivo();
+        allow create: if isActivo() &&
+          request.resource.data.autorUid == request.auth.uid &&
+          request.resource.data.leido == false;
+        allow update: if
+          (
+            (esStaff() || isPresidenteDe(comisionId)) &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['leido'])
+          ) ||
+          (
+            isSignedIn() && resource.data.autorUid == request.auth.uid &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['texto'])
+          );
         allow delete: if esStaff() || (isSignedIn() && resource.data.autorUid == request.auth.uid);
       }
 
       // Historial de versiones/estados del plan: es una bitácora, así que
-      // solo se puede agregar (nunca editar ni borrar).
+      // solo se puede agregar (nunca editar). El presidente solo puede
+      // registrar el envío a revisión; el staff registra cualquier cambio de
+      // estado. Solo el admin puede borrar (al eliminar una rama completa).
       match /historial/{versionId} {
-        allow read: if isSignedIn();
-        allow create: if esStaff() || isPresidenteDe(comisionId);
-        allow update, delete: if false;
+        allow read: if isActivo();
+        allow create: if esStaff() ||
+          (isPresidenteDe(comisionId) && request.resource.data.estado == 'en_revision');
+        allow update: if false;
+        allow delete: if isAdmin();
       }
     }
   }
