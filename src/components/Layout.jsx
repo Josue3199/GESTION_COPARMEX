@@ -10,10 +10,11 @@ const navParaRol = (rol) => {
       { to: '/admin', label: 'Panel' },
       { to: '/admin/ramas', label: 'Ramas' },
       { to: '/admin/presidentes', label: 'Accesos' },
+      { to: '/directorio', label: 'Directorio' },
     ]
   }
   if (rol === 'directora') {
-    return [{ to: '/admin', label: 'Panel' }]
+    return [{ to: '/admin', label: 'Panel' }, { to: '/directorio', label: 'Directorio' }]
   }
   if (rol === 'presidente') {
     return NAV_PRESIDENTE
@@ -25,6 +26,7 @@ const NAV_PRESIDENTE = [
   { to: '/mi-comision', label: 'Mi plan' },
   { to: '/mi-avance', label: 'Mi avance' },
   { to: '/comisiones', label: 'Todos los planes' },
+  { to: '/directorio', label: 'Directorio' },
 ]
 
 export default function Layout({ children, titulo }) {
