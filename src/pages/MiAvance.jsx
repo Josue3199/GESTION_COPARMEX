@@ -11,17 +11,27 @@ export default function MiAvance() {
   const [comision, setComision] = useState(null)
   const [historial, setHistorial] = useState([])
   const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const cargar = async () => {
-      if (!perfil?.comisionId) return
-      const [snap, historialSnap] = await Promise.all([
-        getDoc(doc(db, 'comisiones', perfil.comisionId)),
-        getDocs(query(collection(db, 'comisiones', perfil.comisionId, 'historial'), orderBy('fecha', 'desc'))),
-      ])
-      if (snap.exists()) setComision({ id: snap.id, ...snap.data() })
-      setHistorial(historialSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
-      setCargando(false)
+      if (!perfil?.comisionId) {
+        setCargando(false)
+        return
+      }
+      try {
+        const [snap, historialSnap] = await Promise.all([
+          getDoc(doc(db, 'comisiones', perfil.comisionId)),
+          getDocs(query(collection(db, 'comisiones', perfil.comisionId, 'historial'), orderBy('fecha', 'desc'))),
+        ])
+        if (snap.exists()) setComision({ id: snap.id, ...snap.data() })
+        setHistorial(historialSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      } catch (err) {
+        console.error('Error cargando Mi avance:', err)
+        setError('No se pudo cargar tu avance. Revisa tu conexión e intenta de nuevo.')
+      } finally {
+        setCargando(false)
+      }
     }
     cargar()
   }, [perfil])
@@ -36,6 +46,7 @@ export default function MiAvance() {
   }, [comision])
 
   if (cargando) return <Layout titulo="Mi avance"><p>Cargando…</p></Layout>
+  if (error) return <Layout titulo="Mi avance"><p className="text-red-600 text-sm">{error}</p></Layout>
   if (!comision)
     return (
       <Layout titulo="Mi avance">
