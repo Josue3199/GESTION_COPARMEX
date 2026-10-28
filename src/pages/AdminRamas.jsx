@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { collection, deleteDoc, doc, getDoc, getDocs, setDoc, updateDoc } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { AREAS, slugify } from '../data/comisiones'
 import Layout from '../components/Layout'
@@ -127,7 +127,20 @@ export default function AdminRamas() {
     )
     if (!confirmar) return
     try {
-      await deleteDoc(doc(db, 'comisiones', c.id))
+      // Firestore NO borra las subcolecciones al borrar el documento padre:
+      // se eliminan aquí para no dejar borradores, notas e historial huérfanos.
+      const subcolecciones = ['borrador', 'comentarios', 'historial']
+      const docsHijos = []
+      for (const sub of subcolecciones) {
+        const snap = await getDocs(collection(db, 'comisiones', c.id, sub))
+        snap.docs.forEach((d) => docsHijos.push(d.ref))
+      }
+      const refs = [...docsHijos, doc(db, 'comisiones', c.id)]
+      for (let i = 0; i < refs.length; i += 400) {
+        const batch = writeBatch(db)
+        refs.slice(i, i + 400).forEach((r) => batch.delete(r))
+        await batch.commit()
+      }
       await cargar()
     } catch (err) {
       setError(`No se pudo eliminar (${err.code || err.message}).`)
