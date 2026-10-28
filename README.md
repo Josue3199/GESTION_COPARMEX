@@ -8,7 +8,7 @@ en vez de mandar PDFs sueltos.
 automático con GitHub Actions.
 
 ## Qué incluye esta base
-
+ok
 - Login con Firebase Authentication (correo/contraseña).
 - Dos roles: `admin` (la administradora) y `presidente` (presidente/a de comisión).
 - Botón para inicializar Firestore con las 25 comisiones ya extraídas del PDF
