@@ -77,7 +77,11 @@ export default function Layout({ children, titulo }) {
           {nav.length > 0 && (
             <nav className="max-w-6xl mx-auto px-4 flex gap-1 -mt-px overflow-x-auto">
               {nav.map((item) => {
-                const activo = location.pathname === item.to
+                const activo =
+                  location.pathname === item.to ||
+                  (item.to === '/admin'
+                    ? location.pathname.startsWith('/admin/comision/')
+                    : location.pathname.startsWith(`${item.to}/`))
                 return (
                   <Link
                     key={item.to}
