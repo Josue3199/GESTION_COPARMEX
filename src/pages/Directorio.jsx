@@ -14,7 +14,24 @@ const CAMPOS = [
 ]
 
 const limpiar = (v = '') => String(v ?? '').trim()
-const csvCell = (v) => `"${String(v ?? '').replaceAll('"', '""')}"`
+// Excel interpreta como fórmula cualquier celda que empiece con = + - @ (o
+// tab/retorno): se antepone un apóstrofo para que se lea como texto.
+const csvCell = (v) => {
+  let texto = String(v ?? '')
+  if (/^[=+\-@\t\r]/.test(texto)) texto = `'${texto}`
+  return `"${texto.replaceAll('"', '""')}"`
+}
+
+// Solo se aceptan enlaces http(s): un valor tipo "javascript:..." guardado
+// por un presidente se ejecutaría al hacer clic otro usuario.
+const urlSegura = (v) => {
+  try {
+    const u = new URL(String(v ?? '').trim())
+    return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : ''
+  } catch {
+    return ''
+  }
+}
 
 export default function Directorio() {
   const { user, perfil } = useAuth()
@@ -100,6 +117,9 @@ export default function Directorio() {
       if (form.correoContacto && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.correoContacto.trim())) {
         throw new Error('Escribe un correo de contacto válido.')
       }
+      if (form.linkedin && form.linkedin.trim() && !urlSegura(form.linkedin)) {
+        throw new Error('El enlace de LinkedIn debe empezar con https://')
+      }
       const cambios = Object.fromEntries(CAMPOS.map(({ key }) => [key, limpiar(form[key])]))
       cambios.actualizadoEn = new Date().toISOString()
       await updateDoc(doc(db, 'presidentesAutorizados', editando.id), cambios)
@@ -160,7 +180,8 @@ export default function Directorio() {
         </select>
       </div>
 
-      {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+      {error && !editando && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+      {mensaje && <div className="no-print mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{mensaje}</div>}
       <div className="mb-4 flex items-center justify-between text-sm text-slate-500">
         <span>{cargando ? 'Cargando directorio…' : `${visibles.length} ${visibles.length === 1 ? 'presidente' : 'presidentes'}`}</span>
         <span className="hidden sm:inline">Los cambios guardados se reflejan para todos los usuarios.</span>
@@ -188,7 +209,7 @@ export default function Directorio() {
               <div className="mt-4 space-y-2 text-sm">
                 <a className="flex min-w-0 items-center gap-2 break-all text-blue-700 hover:underline" href={`mailto:${p.correoMostrar}`}><span aria-hidden="true">✉</span><span>{p.correoMostrar}</span></a>
                 {p.telefono ? <a className="flex items-center gap-2 text-slate-700 hover:text-blue-700" href={`tel:${p.telefono.replace(/[^+\d]/g, '')}`}><span aria-hidden="true">☎</span>{p.telefono}</a> : <p className="text-xs text-slate-400">Teléfono no registrado</p>}
-                {p.linkedin && <a className="inline-flex text-xs text-blue-700 hover:underline" href={p.linkedin} target="_blank" rel="noreferrer">Ver perfil de LinkedIn ↗</a>}
+                {urlSegura(p.linkedin) && <a className="inline-flex text-xs text-blue-700 hover:underline" href={urlSegura(p.linkedin)} target="_blank" rel="noreferrer noopener">Ver perfil de LinkedIn ↗</a>}
               </div>
               <div className="no-print mt-4 flex gap-2 border-t border-slate-100 pt-4">
                 <a href={`mailto:${p.correoMostrar}`} className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">✉ Correo</a>
