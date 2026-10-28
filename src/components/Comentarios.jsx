@@ -15,24 +15,34 @@ export default function Comentarios({ comisionId, botonFlotante = false }) {
   const [texto, setTexto] = useState('')
   const [mostrarForm, setMostrarForm] = useState(false)
   const [enviando, setEnviando] = useState(false)
+  const [error, setError] = useState('')
 
   const esPropietario = perfil?.rol === 'presidente' && perfil?.comisionId === comisionId
 
   const cargar = async () => {
     setCargando(true)
-    const snap = await getDocs(
-      query(collection(db, 'comisiones', comisionId, 'comentarios'), orderBy('fecha', 'desc'))
-    )
-    const lista = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-    setComentarios(lista)
-    setCargando(false)
+    setError('')
+    try {
+      const snap = await getDocs(
+        query(collection(db, 'comisiones', comisionId, 'comentarios'), orderBy('fecha', 'desc'))
+      )
+      const lista = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      setComentarios(lista)
 
-    // El propietario marca como leídas las notas de otras personas al abrir el hilo.
-    if (esPropietario) {
-      const noLeidas = lista.filter((c) => c.autorUid !== user.uid && c.leido === false)
-      noLeidas.forEach((c) => {
-        updateDoc(fsDoc(db, 'comisiones', comisionId, 'comentarios', c.id), { leido: true })
-      })
+      // El propietario marca como leídas las notas de otras personas al abrir el hilo.
+      if (esPropietario) {
+        const noLeidas = lista.filter((c) => c.autorUid !== user.uid && c.leido === false)
+        noLeidas.forEach((c) => {
+          updateDoc(fsDoc(db, 'comisiones', comisionId, 'comentarios', c.id), { leido: true }).catch(
+            (e) => console.error('No se pudo marcar la nota como leída:', e)
+          )
+        })
+      }
+    } catch (err) {
+      console.error('Error cargando notas:', err)
+      setError('No se pudieron cargar las notas.')
+    } finally {
+      setCargando(false)
     }
   }
 
@@ -45,18 +55,25 @@ export default function Comentarios({ comisionId, botonFlotante = false }) {
     e.preventDefault()
     if (!texto.trim()) return
     setEnviando(true)
-    await addDoc(collection(db, 'comisiones', comisionId, 'comentarios'), {
-      texto: texto.trim(),
-      autorUid: user.uid,
-      autorNombre: perfil?.nombre || perfil?.rol,
-      autorRol: perfil?.rol,
-      fecha: new Date().toISOString(),
-      leido: false,
-    })
-    setTexto('')
-    setMostrarForm(false)
-    setEnviando(false)
-    await cargar()
+    setError('')
+    try {
+      await addDoc(collection(db, 'comisiones', comisionId, 'comentarios'), {
+        texto: texto.trim(),
+        autorUid: user.uid,
+        autorNombre: perfil?.nombre || perfil?.rol,
+        autorRol: perfil?.rol,
+        fecha: new Date().toISOString(),
+        leido: false,
+      })
+      setTexto('')
+      setMostrarForm(false)
+      await cargar()
+    } catch (err) {
+      console.error('Error enviando nota:', err)
+      setError('No se pudo enviar la nota. Intenta de nuevo.')
+    } finally {
+      setEnviando(false)
+    }
   }
 
   return (
@@ -105,6 +122,8 @@ export default function Comentarios({ comisionId, botonFlotante = false }) {
           </div>
         </form>
       )}
+
+      {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
 
       {cargando ? (
         <p className="text-sm text-slate-500">Cargando notas…</p>
