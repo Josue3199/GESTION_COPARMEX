@@ -16,17 +16,27 @@ export default function MisPlanes() {
   const [historial, setHistorial] = useState([])
   const [cargando, setCargando] = useState(true)
   const [abierto, setAbierto] = useState(null)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const cargar = async () => {
-      if (!perfil?.comisionId) return
-      const [snap, historialSnap] = await Promise.all([
-        getDoc(doc(db, 'comisiones', perfil.comisionId)),
-        getDocs(query(collection(db, 'comisiones', perfil.comisionId, 'historial'), orderBy('fecha', 'desc'))),
-      ])
-      if (snap.exists()) setComision({ id: snap.id, ...snap.data() })
-      setHistorial(historialSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((h) => h.plan))
-      setCargando(false)
+      if (!perfil?.comisionId) {
+        setCargando(false)
+        return
+      }
+      try {
+        const [snap, historialSnap] = await Promise.all([
+          getDoc(doc(db, 'comisiones', perfil.comisionId)),
+          getDocs(query(collection(db, 'comisiones', perfil.comisionId, 'historial'), orderBy('fecha', 'desc'))),
+        ])
+        if (snap.exists()) setComision({ id: snap.id, ...snap.data() })
+        setHistorial(historialSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((h) => h.plan))
+      } catch (err) {
+        console.error('Error cargando Mis planes:', err)
+        setError('No se pudieron cargar tus planes. Revisa tu conexión e intenta de nuevo.')
+      } finally {
+        setCargando(false)
+      }
     }
     cargar()
   }, [perfil])
@@ -39,6 +49,8 @@ export default function MisPlanes() {
 
       {cargando ? (
         <p className="text-slate-500">Cargando…</p>
+      ) : error ? (
+        <p className="text-red-600 text-sm">{error}</p>
       ) : historial.length === 0 ? (
         <div className="bg-white border border-dashed border-slate-300 rounded-xl p-8 text-center text-slate-500">
           Todavía no has enviado ningún plan. Cuando envíes uno para revisión, va a aparecer aquí.
