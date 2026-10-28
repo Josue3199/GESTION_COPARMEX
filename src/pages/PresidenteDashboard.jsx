@@ -20,25 +20,37 @@ export default function PresidenteDashboard() {
   const [comision, setComision] = useState(null)
   const [borrador, setBorrador] = useState(null)
   const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState('')
 
   const cargar = async () => {
-    if (!perfil?.comisionId) return
+    // Sin comisión asignada se muestra el aviso en vez de quedarse en "Cargando…".
+    if (!perfil?.comisionId) {
+      setCargando(false)
+      return
+    }
     setCargando(true)
-    const [snap, bSnap] = await Promise.all([
-      getDoc(doc(db, 'comisiones', perfil.comisionId)),
-      getDoc(doc(db, 'comisiones', perfil.comisionId, 'borrador', 'actual')),
-    ])
-    if (snap.exists()) setComision({ id: snap.id, ...snap.data() })
+    setError('')
+    try {
+      const [snap, bSnap] = await Promise.all([
+        getDoc(doc(db, 'comisiones', perfil.comisionId)),
+        getDoc(doc(db, 'comisiones', perfil.comisionId, 'borrador', 'actual')),
+      ])
+      if (snap.exists()) setComision({ id: snap.id, ...snap.data() })
 
-    // La copia local (guardada al instante en cada tecleo) puede llevar
-    // más avance que la de Firestore si hubo un cierre justo antes de que
-    // el autoguardado remoto alcanzara a correr; se usa la más reciente.
-    const local = perfil.comisionId ? leerBorradorLocal(perfil.comisionId) : null
-    const remoto = bSnap.exists() ? bSnap.data() : null
-    const masReciente =
-      local && (!remoto || new Date(local.actualizadoEn) >= new Date(remoto.actualizadoEn)) ? local : remoto
-    setBorrador(masReciente)
-    setCargando(false)
+      // La copia local (guardada al instante en cada tecleo) puede llevar
+      // más avance que la de Firestore si hubo un cierre justo antes de que
+      // el autoguardado remoto alcanzara a correr; se usa la más reciente.
+      const local = leerBorradorLocal(perfil.comisionId)
+      const remoto = bSnap.exists() ? bSnap.data() : null
+      const masReciente =
+        local && (!remoto || new Date(local.actualizadoEn) >= new Date(remoto.actualizadoEn)) ? local : remoto
+      setBorrador(masReciente)
+    } catch (err) {
+      console.error('Error cargando el panel del presidente:', err)
+      setError('No se pudo cargar tu información. Revisa tu conexión e intenta de nuevo.')
+    } finally {
+      setCargando(false)
+    }
   }
 
   useEffect(() => {
@@ -62,6 +74,7 @@ export default function PresidenteDashboard() {
   }
 
   if (cargando) return <Layout titulo="Mi plan"><p>Cargando…</p></Layout>
+  if (error) return <Layout titulo="Mi plan"><p className="text-red-600 text-sm">{error}</p></Layout>
   if (!comision)
     return (
       <Layout titulo="Mi plan">
