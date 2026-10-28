@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { collection, doc, getDocs, setDoc } from 'firebase/firestore'
+import { collection, deleteField, doc, getDocs, setDoc } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import Layout from '../components/Layout'
 
@@ -53,7 +53,6 @@ export default function AdminPresidentes() {
 
   useEffect(() => {
     cargar()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const yaInicioSesion = (correoAutorizado) =>
@@ -71,11 +70,20 @@ export default function AdminPresidentes() {
     }
     setGuardando(true)
     try {
-      await setDoc(doc(db, 'presidentesAutorizados', correoLimpio), {
-        nombre: nombre.trim(),
-        rol,
-        ...(rol === 'presidente' ? { comisionId, cargo } : {}),
-      })
+      // merge: si el correo ya existía, se conservan los datos de contacto
+      // que la persona capturó en el Directorio (teléfono, empresa, etc.).
+      // Si el rol deja de ser presidente se quitan comisión y cargo.
+      await setDoc(
+        doc(db, 'presidentesAutorizados', correoLimpio),
+        {
+          nombre: nombre.trim(),
+          rol,
+          ...(rol === 'presidente'
+            ? { comisionId, cargo }
+            : { comisionId: deleteField(), cargo: deleteField() }),
+        },
+        { merge: true }
+      )
       setMensaje(
         `Listo: ${correoLimpio} ya puede entrar con Google como ${ROL_LABEL[rol].toLowerCase()}.`
       )
@@ -86,6 +94,7 @@ export default function AdminPresidentes() {
       setRol('presidente')
       await cargar()
     } catch (err) {
+      console.error('Error guardando autorización:', err)
       setError('No se pudo guardar la autorización. Intenta de nuevo.')
     } finally {
       setGuardando(false)
